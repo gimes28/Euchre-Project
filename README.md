@@ -1,2 +1,2 @@
-# Euchre-Project
-A euchre bot that analysis it's cards and determines the probability of each's teams chance of winning the round
+# EuchreIQ
+Create a euchre program that performs a statistical analysis of it's cards and determines the probability of each teams chance of winning the round. 
