@@ -7,5 +7,3 @@
 1. As an advanced Euchre player, I want to view the probability of winning after each card is played so I can make more informed decisions during the game.
 
 1. As a data scientist, I want to see a detailed and accurate statistical analysis after each played card so I can better understand where our model is strong and where it needs help.
-
-1. ~Story 5~ 
