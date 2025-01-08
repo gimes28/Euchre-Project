@@ -119,7 +119,7 @@ USE_TZ = True
 
 # Static files for production
 STATIC_URL = 'static/'
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]  # Add this for development static files
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]  # Add this for development static files (images, styles, etc. we put in the static folder)
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Add this for production
 
 # Default primary key field type
