@@ -44,7 +44,12 @@
         <!-- Content Section -->
         <div class="home-background-wrapper">
             <!-- Game Board Top Left -->
-            <div class="left-div">Current Game</div>
+            <div class="left-div">
+                <form method="post" action="{% url 'start_game' %}">
+                    {% csrf_token %}
+                    <button class="ui primary button" type="submit">Start New Game</button>
+                </form>
+            </div>
             <!-- Cards Played Top Right -->
             <div class="right-div" style="font-weight: bold;">Previous Tricks</div>
             <!-- Bottom Row -->

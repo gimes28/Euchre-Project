@@ -2,6 +2,8 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.contrib.auth.views import LoginView
+from django.http import JsonResponse
+from .models import start_euchre_game
 
 # Create your views here.
 def home(request):
@@ -30,3 +32,16 @@ class CustomLoginView(LoginView):
             return '/admin/'
         # Redirect regular users to the default redirect URL
         return super().get_success_url()
+    
+    
+def start_game_view(request):
+    """
+    Handle starting a new game.
+    """
+    if request.method == "POST":
+        # Start the Euchre game
+        start_euchre_game()
+        # Redirect to home or return a success message
+        return redirect('home')
+
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
