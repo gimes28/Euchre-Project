@@ -3,8 +3,8 @@
     grid-template-columns: 2fr 1fr; /* Two-thirds height for left top column, one-third for right top column */
     grid-template-rows: 3fr 1fr; /* Three-quarter height for top rows, one-quarter for bottom */
     gap: 10px; /* Optional: Space between grid items */
-    height: calc(100vh - 100px); /* Full viewport height minus toolbar height */
-    max-height: calc(100vh - 100px); /* Full viewport height minus toolbar height */
+    height: calc(100vh - 108px); /* Full viewport height minus toolbar height */
+    max-height: calc(100vh - 108px); /* Full viewport height minus toolbar height */
     width: 100%; /* Full width */
     box-sizing: border-box; /* Include padding in height and width */
     background-color: #f5f5f5; /* Light grey background */
@@ -88,4 +88,11 @@
     text-align: center;
     border: 1px solid #333333;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Icon styling */
+.header-logo {
+    width: 1.5em !important; /* Match the font size of the text */
+    vertical-align: top !important; /* Align the image vertically with the text */
+    margin-right: -5px !important;
 }
