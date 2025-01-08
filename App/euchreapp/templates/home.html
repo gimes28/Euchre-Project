@@ -20,8 +20,8 @@
     <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js"></script> 
 </head>
 <body>
-    <div class="ui fluid container" style="margin-top: 20px;">
-        <h1 class="ui center aligned header">Euchre IQ</h1>
+    <div class="ui fluid container">
+        <h1 class="ui center aligned header" style="padding-top: 8px;">Euchre IQ</h1>
 
         <!-- Toolbar Section -->
         <div class="ui menu">
@@ -41,10 +41,22 @@
                 {% endif %}
             </div>
         </div>
-
         <!-- Content Section -->
-        <div class="background-grey">
-            <p>This is the main page of the application.</p>
+        <div class="home-background-wrapper">
+            <!-- Game Board Top Left -->
+            <div class="left-div">Current Game</div>
+            <!-- Cards Played Top Right -->
+            <div class="right-div" style="font-weight: bold;">Previous Tricks</div>
+            <!-- Bottom Row -->
+            <div class="bottom-div">
+                <!-- Bottom Row Left Half: Two Columns -->
+                <div class="bottom-left">
+                    <div class="bottom-left-column-1" style="font-weight: bold;">Current Trump</div>
+                    <div class="bottom-left-column-2" style="font-weight: bold;">Game Score</div>
+                </div>
+                <!-- Bottom Row Right Half: One Column -->
+                <div class="bottom-right" style="font-weight: bold;">Remaining Cards</div>
+            </div>
         </div>
     </div>
 </body>
