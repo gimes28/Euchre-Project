@@ -37,5 +37,13 @@ Step 2: A A team gains points if they win a majority of tricks. For attackers (i
 
 Step 3: Play each trick until you run out of cards and when one team reaches 10 points, the game is over and that team is victorious!
 
+# Other Rules (may implement?)
+
+1. When passing out the cards, you must deal everyone two cards first, and then three cards. Meaning, you cannot deal one person all of their five cards at once. 
+
+2. If you have a great hand, you can choose to play this trick alone (“go alone”), which exempts your partner from playing in that trick. “Going alone” can be a good strategy because it can get you extra points in that trick, which will help you win.
+
+
+
 # Alternate rules
 https://www.youtube.com/watch?v=NJJxUYs6Tgk
