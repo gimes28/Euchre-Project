@@ -6,7 +6,7 @@ from .models import Todo
 # Create your views here.
 def index(request):
     todos = Todo.objects.all()
-    return render(request, "base.html", {"todo_list": todos})
+    return render(request, "todos.html", {"todo_list": todos})
 
 
 # Require this be a post type method by using the decorator
