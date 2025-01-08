@@ -16,9 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.contrib.auth import views as auth_views
+from homepage import views as homepage_views
+from homepage.views import CustomLoginView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('homepage.urls')),  # Homepage app
-    path('todolist/', include('todolist.urls')),  # TodoList app
+    path('', include('homepage.urls')),  # Homepage routes
+    path('todolist/', include('todolist.urls')),  # Todo List routes
+    path('login/', CustomLoginView.as_view(), name='login'),  # Login
+    path('logout/', auth_views.LogoutView.as_view(next_page='/'), name='logout'),  # Logout and redirect back to homepage
+    path('signup/', homepage_views.signup, name='signup'),  # Sign Up
 ]

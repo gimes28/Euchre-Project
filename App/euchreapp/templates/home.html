@@ -24,8 +24,16 @@
             <a class="item" href="/todolist/">Todo List</a>
             <a class="item" href="#">About</a>
             <div class="right menu">
-                <a class="ui item" href="#">Login</a>
-                <a class="ui item" href="#">Sign Up</a>
+                {% if user.is_authenticated %}
+                    <span class="item">Welcome, {{ user.username }}!</span>
+                    <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button class="ui item button" type="submit">Logout</button>
+                    </form>
+                {% else %}
+                    <a class="ui item" href="{% url 'login' %}">Login</a>
+                    <a class="ui item" href="{% url 'signup' %}">Sign Up</a>
+                {% endif %}
             </div>
         </div>
 
