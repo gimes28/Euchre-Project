@@ -17,6 +17,7 @@ class Player(models.Model):
 class Game(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    dealer = models.ForeignKey(Player, on_delete=models.SET_NULL, null=True, related_name='games_as_dealer')
 
     def __str__(self):
         return f"Game {self.id} started at {self.created_at}"
@@ -51,13 +52,13 @@ class Card(models.Model):
 
 
 class PlayedCard(models.Model):
-    hand = models.ForeignKey(Hand, on_delete=models.CASCADE, related_name='played_cards')
+    hand = models.ForeignKey(Hand, on_delete=models.CASCADE, related_name='played_cards', null=True, blank=True)
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
     card = models.ForeignKey(Card, on_delete=models.CASCADE)
-    order = models.IntegerField()  # Order in which the card was played in the hand
+    order = models.IntegerField()  # Order in which the card was dealt or played
 
     def __str__(self):
-        return f"{self.player.name} played {self.card} in Hand {self.hand.id}"
+        return f"{self.player.name} has {self.card}"
 
 
 class GameResult(models.Model):
@@ -238,47 +239,59 @@ def start_round(game):
     """
     Shuffles the deck, deals one card to each player, and determines the dealer.
     """
-    # Get players in the game
     players = Player.objects.all()
 
     # Copy and shuffle the deck
     deck = list(Card.objects.all())
     shuffle(deck)
 
-    # Ensure there are enough cards
+    # Ensure there are enough cards for all players
     if len(deck) < len(players):
         raise ValueError("Not enough cards in the deck to determine the dealer.")
 
     # Deal one card to each player
     dealt_cards = {}
     for player in players:
-        dealt_cards[player] = deck.pop()
+        card = deck.pop()
+        dealt_cards[player] = card
 
     # Find the highest card
     def card_rank_value(card):
         rank_order = ['9', '10', 'J', 'Q', 'K', 'A']
         return rank_order.index(card.rank)
 
-    if dealt_cards:
-        highest_card = max(dealt_cards.values(), key=card_rank_value)
-        dealer = next(player for player, card in dealt_cards.items() if card == highest_card)
-    else:
-        highest_card = None
-        dealer = None
+    highest_card = max(dealt_cards.values(), key=card_rank_value)
+    dealer = next(player for player, card in dealt_cards.items() if card == highest_card)
 
-    # Return results, including highest_card
+    # Save the dealer to the game
+    game.dealer = dealer
+    game.save()
+
     return dealt_cards, dealer, highest_card
+
 
 def deal_hand(deck, players):
     """
-    Deals a hand of 5 cards to each player without modifying the database.
+    Deals a hand of 5 cards to each player and creates PlayedCard objects in the database.
     """
     hands = {}
     for player in players:
-        if len(deck) < 5:
-            raise ValueError("Not enough cards in the deck to deal a hand.")
-        hands[player] = [deck.pop() for _ in range(5)]  # Each player gets 5 cards
-    return hands
+        hands[player] = []
+        for _ in range(5):
+            card = deck.pop()
+            hands[player].append(card)
+
+            # Create PlayedCard entry for each card dealt
+            PlayedCard.objects.create(
+                hand=None,  # Assign the current hand if available
+                player=player,
+                card=card,
+                order=len(hands[player])  # Maintain the order of cards
+            )
+
+    # Return the remaining cards
+    remaining_cards = deck[:4] if len(deck) >= 4 else []
+    return hands, remaining_cards
 
 def start_euchre_game():
     players = [
@@ -296,6 +309,6 @@ def start_euchre_game():
     dealt_cards, dealer, highest_card = start_round(game)
 
     # Deal a full hand to each player
-    hands = deal_hand(deck, player_objects)
+    hands, remaining_cards = deal_hand(deck, player_objects)
 
-    return game, hands, dealer
+    return game, hands, dealer, remaining_cards
