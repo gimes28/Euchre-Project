@@ -48,10 +48,35 @@
         <div class="home-background-wrapper">
             <!-- Game Board Top Left -->
             <div class="left-div">
-                <form method="post" action="{% url 'start_game' %}">
-                    {% csrf_token %}
-                    <button class="ui primary button" type="submit">Start New Game</button>
+                <form id="start-game-form" class="centered-form">
+                    <button class="ui primary button" type="button" id="start-game-button">Start New Game</button>
                 </form>
+                <div id="dealt-cards-container" style="display: none;">
+                    <p id="dealt-cards-text"></p>
+                </div>
+                <div class="grid-container">
+                    <div class="rectangle top" id="bot2-card"></div>
+                    <div class="rectangle left" id="bot1-card"></div>
+                    <div class="rectangle center">
+                        <div class="center-top-text">Team Mate</div>
+                        <div class="center-left-text">Opponent 1</div>
+                        <div class="center-bottom-text">Player</div>
+                        <div class="center-right-text">Opponent 2</div>
+                    
+                        <!-- Custom Modal inside center rectangle -->
+                        <div id="modal-dealer" class="custom-modal">
+                            <div class="modal-header">Dealer for This Round</div>
+                            <div class="modal-content">
+                                <!-- Dynamic content will be injected here by JavaScript -->
+                            </div>
+                            <div class="modal-actions">
+                                <button class="ui primary button" id="modal-ok-button">OK</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rectangle right" id="bot3-card"></div>
+                    <div class="rectangle bottom" id="human-card"></div>
+                </div>
             </div>
             <!-- Cards Played Top Right -->
             <div class="right-div" style="font-weight: bold;">Previous Tricks</div>
@@ -67,5 +92,7 @@
             </div>
         </div>
     </div>
+    <!-- Startgame AJAX promise -->
+    <script src="{% static 'js/start_game.js' %}"></script>
 </body>
 </html>

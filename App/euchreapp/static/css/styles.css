@@ -15,6 +15,7 @@
 
 /* Left div occupies the left column in the top 2/3 area */
 .left-div {
+    position: relative; /* Ensures child elements can be positioned relative to this container */
     grid-column: 1 / 2; /* Start from column 1, end before column 2 */
     grid-row: 1 / 2; /* Start from row 1, end before row 2 */
     background-image: url('/static/images/card-table-texture.jpg'); /* Card table texture */
@@ -95,4 +96,154 @@
     width: 1.5em !important; /* Match the font size of the text */
     vertical-align: top !important; /* Align the image vertically with the text */
     margin-right: -5px !important;
+}
+
+/* Card table divisions */
+
+.grid-container {
+    display: grid;
+    grid-template-areas:
+        "left top right"
+        "left center right"
+        "left bottom right";
+    grid-template-rows: 1fr 2fr 1fr; /* Define row proportions */
+    grid-template-columns: 1fr 4fr 1fr; /* Define column proportions */
+    height: 100%;
+    width: 100%;
+    position: relative;
+    border: 1px solid black; /* Optional: Border for the entire grid */
+    box-sizing: border-box;
+}
+
+.rectangle {
+    border: 1px solid #333;
+    padding: 10px;
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.rectangle.left {
+    grid-area: left;
+}
+
+.rectangle.top {
+    grid-area: top;
+}
+
+.rectangle.center {
+    grid-area: center;
+}
+
+.rectangle.bottom {
+    grid-area: bottom;
+}
+
+.rectangle.right {
+    grid-area: right;
+}
+
+.rectangle.center {
+    grid-area: center;
+    border: 1px solid #333; /* Border for the center square */
+    position: relative; /* To position child elements relative to this square */
+    background-color: transparent; /* Transparent background */
+}
+
+.center-top-text,
+.center-bottom-text {
+    position: absolute;
+    width: 100%; /* Full width of the square */
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.center-top-text {
+    top: 10px; /* Position near the top */
+}
+
+.center-bottom-text {
+    bottom: 10px; /* Position near the bottom */
+}
+
+.center-left-text,
+.center-right-text {
+    position: absolute;
+    height: 100%; /* Full height of the square */
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+    writing-mode: vertical-rl; /* Ensures text flows vertically */
+    text-orientation: mixed; /* Makes text orientation correct */
+}
+
+.center-left-text {
+    left: 0; /* Position on the left border */
+    transform: translate(-50%, 0); /* Adjust alignment */
+    margin-left: 10px;
+}
+
+.center-right-text {
+    right: 0; /* Position on the right border */
+    transform: translate(50%, 0) rotate(180deg); /* Adjust alignment and rotate 180 degrees */
+    margin-right: 10px;
+}
+
+.centered-form {
+    position: absolute; /* Position relative to the parent container */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Center the form horizontally and vertically */
+    z-index: 10; /* Higher z-index to appear above the grid */
+    background-color: rgba(255, 255, 255, 0.9); /* Optional: Semi-transparent background for visibility */
+    padding: 20px; /* Padding around the form */
+    border: 1px solid #333; /* Optional: Border around the form */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Optional: Shadow for emphasis */
+}
+
+/* Custom modal to sit within the game board center square */
+.custom-modal {
+    position: absolute; /* Allows positioning relative to the parent container */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: white; /* Optional: Set a background color */
+    border: 1px solid #333; /* Match the rectangle border */
+    display: none; /* Initially hidden */
+    z-index: 10; /* Ensure it is above other elements */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Optional: Add a subtle shadow */
+}
+
+.custom-modal .modal-header {
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-align: center;
+    margin: 10px 0;
+}
+
+.custom-modal .modal-content {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.custom-modal .modal-actions {
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* Dealer Icon */
+.dealer-highlight {
+    position: relative;
+}
+
+.dealer-icon {
+    position: absolute;
+    left: 5px; /* Left and top to position icon */
+    top: 83%;
+    transform: translateY(-50%);
+    width: 35px; /* Can adjust size */
+    height: auto;
+    z-index: 2; /* Ensure icon stays above other content */
 }

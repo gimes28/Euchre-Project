@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Max
 from random import shuffle
 
 
@@ -42,6 +43,9 @@ class Card(models.Model):
     rank = models.CharField(max_length=5, choices=RANKS)
     is_trump = models.BooleanField(default=False)
 
+    class Meta:
+        unique_together = ('suit', 'rank')  # Prevent duplicates
+
     def __str__(self):
         return f"{self.rank} of {self.suit}" + (" (Trump)" if self.is_trump else "")
 
@@ -72,7 +76,10 @@ def initialize_game(players):
     """
     Initializes the game and returns a shuffled deck of cards.
     """
-    # Create the deck
+    # Clear existing cards to ensure no duplicates
+    Card.objects.all().delete()
+
+    # Create a full deck of unique cards
     deck = []
     for suit, _ in Card.SUITS:
         for rank, _ in Card.RANKS:
@@ -90,18 +97,18 @@ def initialize_game(players):
     return game, deck
 
 
-def deal_cards(deck, players):
-    """
-    Deals 5 cards to each player and updates the database.
-    """
-    hands = {player: [] for player in players}
-    for _ in range(5):
-        for player in players:
-            card = deck.pop()
-            hands[player].append(card)
-            # Assign card to the player in the database if necessary
-            # Example: Assign cards to a `PlayerCard` model
-    return hands
+# def deal_cards(deck, players):
+#     """
+#     Deals 5 cards to each player and updates the database.
+#     """
+#     hands = {player: [] for player in players}
+#     for _ in range(5):
+#         for player in players:
+#             card = deck.pop()
+#             hands[player].append(card)
+#             # Assign card to the player in the database if necessary
+#             # Example: Assign cards to a `PlayerCard` model
+#     return hands
 
 
 def assign_trump(deck, trump_suit):
@@ -226,38 +233,69 @@ def play_card(player, hand, card, player_hands):
 
     # Remove the card from the player's hand
     player_hands[player].remove(card)
+    
+def start_round(game):
+    """
+    Shuffles the deck, deals one card to each player, and determines the dealer.
+    """
+    # Get players in the game
+    players = Player.objects.all()
 
+    # Copy and shuffle the deck
+    deck = list(Card.objects.all())
+    shuffle(deck)
+
+    # Ensure there are enough cards
+    if len(deck) < len(players):
+        raise ValueError("Not enough cards in the deck to determine the dealer.")
+
+    # Deal one card to each player
+    dealt_cards = {}
+    for player in players:
+        dealt_cards[player] = deck.pop()
+
+    # Find the highest card
+    def card_rank_value(card):
+        rank_order = ['9', '10', 'J', 'Q', 'K', 'A']
+        return rank_order.index(card.rank)
+
+    if dealt_cards:
+        highest_card = max(dealt_cards.values(), key=card_rank_value)
+        dealer = next(player for player, card in dealt_cards.items() if card == highest_card)
+    else:
+        highest_card = None
+        dealer = None
+
+    # Return results, including highest_card
+    return dealt_cards, dealer, highest_card
+
+def deal_hand(deck, players):
+    """
+    Deals a hand of 5 cards to each player without modifying the database.
+    """
+    hands = {}
+    for player in players:
+        if len(deck) < 5:
+            raise ValueError("Not enough cards in the deck to deal a hand.")
+        hands[player] = [deck.pop() for _ in range(5)]  # Each player gets 5 cards
+    return hands
 
 def start_euchre_game():
     players = [
-        {"name": "Human", "is_human": True},
-        {"name": "Bot1", "is_human": False},
-        {"name": "Bot2", "is_human": False},
-        {"name": "Bot3", "is_human": False},
+        {"name": "Player", "is_human": True},
+        {"name": "Opponent1", "is_human": False},
+        {"name": "Team Mate", "is_human": False},
+        {"name": "Opponent2", "is_human": False},
     ]
 
-    # Initialize the game
+    # Initialize the game and create a fresh deck
     game, deck = initialize_game(players)
     player_objects = Player.objects.all()
 
-    # Deal cards
-    player_hands = deal_cards(deck, player_objects)
+    # Determine the dealer
+    dealt_cards, dealer, highest_card = start_round(game)
 
-    # Play hands
-    for _ in range(5):  # Assuming 5 hands in the game
-        hand = Hand.objects.create(game=game, dealer=player_objects[0], trump_suit="hearts")
+    # Deal a full hand to each player
+    hands = deal_hand(deck, player_objects)
 
-        for player in player_objects:
-            if player.is_human:
-                # Prompt the human player to play a card (this part needs UI/interaction)
-                continue
-            else:
-                # Bot logic to determine and play the best card
-                card_to_play = determine_best_card(player_hands[player], hand.trump_suit, hand.played_cards.all())
-                play_card(player, hand, card_to_play, player_hands)
-
-        hand.winner = evaluate_trick_winner(hand.trump_suit, hand.played_cards.all())
-        hand.save()
-
-    # Finalize results
-    update_game_results(game)
+    return game, hands, dealer
