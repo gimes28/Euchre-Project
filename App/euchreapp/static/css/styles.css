@@ -66,11 +66,14 @@
 
 /* First Column in the Left Side */
 .bottom-left-column-1 {
+    display: block; /* Default block layout */
     background-color: #d9d9d9; /* Light grey */
     padding: 10px;
     text-align: center;
-    border: 1px solid #333333; /* Border */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Shadow */
+    border: 1px solid #333333;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    position: relative; /* Ensure proper positioning for child elements */
+    height: 100%; /* Adjust height to fill the available space */
 }
 
 /* Second Column in the Left Side */
@@ -254,4 +257,11 @@
     max-height: 125px; /* Prevent the image from growing too large */
     vertical-align: middle; /* Align the image with text */
     margin-top: 5px; /* Add some space between the image and the text */
+}
+
+.icon-wrapper {
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    height: calc(100% - 20px); /* Deduct height for text and padding, adjust as needed */
 }

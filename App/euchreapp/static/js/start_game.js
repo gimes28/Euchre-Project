@@ -126,8 +126,10 @@ $(document).ready(function () {
 
                 const suitImagePath = suitImageMap[currentSuit];
                 $(".bottom-left-column-1").html(`
-                    <span>Current Trump:</span>
-                    <img src="${suitImagePath}" alt="${currentSuit}" class="trump-suit-icon">
+                    <span>Current Trump</span>
+                    <div class="icon-wrapper">
+                        <img src="${suitImagePath}" alt="${currentSuit}" class="trump-suit-icon">
+                    </div>
                 `);
 
                 // Update the player's hand in their rectangle
