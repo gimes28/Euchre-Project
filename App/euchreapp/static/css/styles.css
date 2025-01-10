@@ -247,3 +247,11 @@
     height: auto;
     z-index: 2; /* Ensure icon stays above other content */
 }
+
+.trump-suit-icon {
+    width: 105px; /* Set the desired width */
+    height: auto; /* Maintain aspect ratio */
+    max-height: 125px; /* Prevent the image from growing too large */
+    vertical-align: middle; /* Align the image with text */
+    margin-top: 5px; /* Add some space between the image and the text */
+}

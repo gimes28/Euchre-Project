@@ -107,7 +107,7 @@ $(document).ready(function () {
     // Handle accepting the trump card
     $("#accept-trump-button").click(function () {
         const currentPlayer = playerOrder[currentPlayerIndex];
-    
+
         $.ajax({
             url: "/accept-trump/",
             type: "POST",
@@ -115,14 +115,25 @@ $(document).ready(function () {
             success: function (response) {
                 trumpSelected = true;
                 currentSuit = response.trump_suit;
-    
-                // Update the current trump suit
-                $(".bottom-left-column-1").text(`Current Trump: ${currentSuit}`);
-    
+
+                // Update the current trump suit text and add the suit image
+                const suitImageMap = {
+                    "spades": "/static/images/spade.png",
+                    "hearts": "/static/images/heart.png",
+                    "diamonds": "/static/images/diamond.png",
+                    "clubs": "/static/images/club.png"
+                };
+
+                const suitImagePath = suitImageMap[currentSuit];
+                $(".bottom-left-column-1").html(`
+                    <span>Current Trump:</span>
+                    <img src="${suitImagePath}" alt="${currentSuit}" class="trump-suit-icon">
+                `);
+
                 // Update the player's hand in their rectangle
                 const updatedHand = response.updated_hand.join(", ");
                 $(positions[currentPlayer]).text(updatedHand);
-    
+
                 // Show the final message
                 showFinalMessage(`${currentPlayer} accepted the trump card!`);
             },
