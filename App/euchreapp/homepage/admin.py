@@ -27,6 +27,7 @@ class HandAdmin(admin.ModelAdmin):
     list_filter = ("trump_suit",)
     autocomplete_fields = ("game", "dealer", "winner")
     search_fields = ("id", "game__id")  # Add a searchable field for the referenced `game`
+    ordering = ("id",)
 
 
 
@@ -55,3 +56,11 @@ class GameResultAdmin(admin.ModelAdmin):
     autocomplete_fields = ("game", "winner")
     ordering = ("-game",)
     search_fields = ("game__id", "winner__name")
+    
+    
+class PlayedCardInline(admin.TabularInline):
+    model = PlayedCard
+    extra = 0
+    
+class HandAdmin(admin.ModelAdmin):
+    inlines = [PlayedCardInline]
