@@ -5,7 +5,7 @@ from django.contrib.auth.views import LoginView
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from random import shuffle
-from .models import start_euchre_game, start_round, Game, Player, Card, deal_hand as model_deal_hand, PlayedCard
+from .models import start_euchre_round, Game, Player, Card, deal_hand as model_deal_hand, PlayedCard, reset_round_state, Hand, GameResult
 
 # Render the homepage
 def home(request):
@@ -41,64 +41,125 @@ class CustomLoginView(LoginView):
 @csrf_exempt
 def start_new_game(request):
     if request.method == 'POST':
-        # Step 1: Start a new game
-        players = Player.objects.all()
+        try:
+            # Step 1: Clear active game-related data but keep past game records
+            PlayedCard.objects.all().delete()  # Remove all played cards from the previous game
+            Hand.objects.all().delete()        # Remove all hands from the previous game
 
-        # Initialize the game and shuffle the deck
-        game = Game.objects.create()
-        deck = list(Card.objects.all())
-        shuffle(deck)
+            # Step 2: Check for the last game and mark it as completed if unfinished
+            last_game = Game.objects.order_by('-id').first()
+            if last_game and (last_game.team1_points < 10 or last_game.team2_points < 10):
+                GameResult.objects.create(
+                    game=last_game,
+                    winner=None,  # Prevents NOT NULL constraint failure
+                    total_hands=last_game.hands.count(),
+                    points={"team1": last_game.team1_points, "team2": last_game.team2_points}
+                )
 
-        # Step 2: Determine the dealer based on the highest card
-        if len(deck) < len(players):
-            return JsonResponse({"error": "Not enough cards in the deck to determine the dealer."}, status=400)
+            # Step 3: Create a new game
+            game = Game.objects.create()
 
-        dealt_cards = {}
-        for player in players:
-            card = deck.pop()
-            dealt_cards[player] = card
+            # Step 4: Reset the deck (keeping past cards in DB)
+            Card.objects.all().update(is_trump=False)  # Reset trump markers, but keep the cards
+            deck = list(Card.objects.all())
+            shuffle(deck)
 
-        # Find the highest card
-        def card_rank_value(card):
-            rank_order = ['9', '10', 'J', 'Q', 'K', 'A']
-            return rank_order.index(card.rank)
+            # Step 5: Assign dealer
+            players = Player.objects.all()
+            if len(deck) < len(players):
+                return JsonResponse({"error": "Not enough cards to determine dealer."}, status=400)
 
-        highest_card = max(dealt_cards.values(), key=card_rank_value)
-        dealer = next(player for player, card in dealt_cards.items() if card == highest_card)
+            dealt_cards = {player: deck.pop() for player in players}
 
-        # Save the dealer to the game
-        game.dealer = dealer
-        game.save()
+            # Find the highest card
+            def card_rank_value(card):
+                rank_order = ['9', '10', 'J', 'Q', 'K', 'A']
+                return rank_order.index(card.rank)
 
-        # Calculate player order starting to the left of the dealer
-        player_list = list(players)
-        dealer_index = player_list.index(dealer)
-        player_order = player_list[dealer_index + 1:] + player_list[:dealer_index + 1]
+            highest_card = max(dealt_cards.values(), key=card_rank_value)
+            dealer = next(player for player, card in dealt_cards.items() if card == highest_card)
 
-        # Step 3: Reset the deck and deal hands
-        deck.extend(dealt_cards.values())  # Return the dealt cards to the deck
-        shuffle(deck)
+            # Assign dealer to new game
+            game.dealer = dealer
+            game.save()
 
-        hands = {}
-        for player in players:
-            hands[player] = [deck.pop() for _ in range(5)]
+            # Step 6: Calculate player order
+            player_list = list(players)
+            dealer_index = player_list.index(dealer)
+            player_order = player_list[dealer_index + 1:] + player_list[:dealer_index + 1]
 
-        # Prepare the remaining cards for trump selection
-        remaining_cards = deck[:4] if len(deck) >= 4 else []
+            # Step 7: Return cards to deck & shuffle
+            deck.extend(dealt_cards.values())
+            shuffle(deck)
 
-        # Step 4: Prepare the response
-        response = {
-            "hands": {
-                player.name: [f"{card.rank} of {card.suit}" for card in hand]
-                for player, hand in hands.items()
-            },
-            "dealt_cards": {player.name: f"{card.rank} of {card.suit}" for player, card in dealt_cards.items()},
-            "dealer": dealer.name,
-            "highest_card": f"{highest_card.rank} of {highest_card.suit}",
-            "remaining_cards": [f"{card.rank} of {card.suit}" for card in remaining_cards],
-            "player_order": [player.name for player in player_order],
-        }
-        return JsonResponse(response)
+            # Step 8: Deal hands
+            hands = {player: [deck.pop() for _ in range(5)] for player in players}
+
+            # Step 9: Prepare remaining cards for trump selection
+            remaining_cards = deck[:4] if len(deck) >= 4 else []
+
+            # Step 10: Send response with initial game data
+            response = {
+                "hands": {player.name: [f"{card.rank} of {card.suit}" for card in hand] for player, hand in hands.items()},
+                "dealt_cards": {player.name: f"{card.rank} of {card.suit}" for player, card in dealt_cards.items()},
+                "dealer": dealer.name,
+                "highest_card": f"{highest_card.rank} of {highest_card.suit}",
+                "remaining_cards": [f"{card.rank} of {card.suit}" for card in remaining_cards],
+                "player_order": [player.name for player in player_order],
+                "new_game_id": game.id  # Include new game ID
+            }
+            return JsonResponse(response)
+
+        except Exception as e:
+            return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)
+
+    return JsonResponse({"error": "Invalid request method."}, status=400)
+
+
+@csrf_exempt
+def deal_next_hand(request):
+    """
+    Handle resetting everything for subsequent rounds, including:
+    - Resetting PlayedCard objects
+    - Rotating the dealer to the next player
+    - Starting the trump suit selection process
+    """
+    if request.method == "POST":
+        try:
+            # Retrieve the latest game
+            game = Game.objects.latest('id')
+
+            # Reset round state and rotate dealer
+            deck = reset_round_state(game)
+
+            # Get all players and cards
+            players = Player.objects.all()
+            
+            # Calculate player order starting to the left of the dealer
+            player_list = list(players)
+            dealer_index = player_list.index(game.dealer)
+            player_order = player_list[dealer_index + 1:] + player_list[:dealer_index + 1]
+
+            # Deal new hands
+            hands, remaining_cards = model_deal_hand(deck, players, game)
+
+            # Prepare the response with the updated state
+            response = {
+                "hands": {
+                    player.name: [f"{card.rank} of {card.suit}" for card in hand]
+                    for player, hand in hands.items()
+                },
+                "dealer": game.dealer.name,  # Include the new dealer
+                "remaining_cards": [f"{card.rank} of {card.suit}" for card in remaining_cards],
+                "player_order": [player.name for player in player_order],
+                "message": "New hands dealt. Begin trump selection."
+            }
+
+            return JsonResponse(response)
+
+        except Exception as e:
+            print(f"Error in deal_next_hand: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request method."}, status=400)
 
@@ -106,16 +167,25 @@ def start_new_game(request):
 def deal_hand(request):
     if request.method == "POST":
         try:
-            dealer_name = request.POST.get("dealer")
-            dealer = Player.objects.get(name=dealer_name)
-            players = Player.objects.all()
+            # Ensure game is initialized or fetch the latest game
+            try:
+                game = Game.objects.latest('id')
+            except Game.DoesNotExist:
+                return JsonResponse({"error": "No active game found. Please start a new game first."}, status=400)
 
             # Shuffle the deck
             deck = list(Card.objects.all())
             shuffle(deck)
 
-            # Use the model's `deal_hand` function to deal cards
-            hands, remaining_cards = model_deal_hand(deck, players)
+            players = Player.objects.all()
+
+            # Calculate player order starting to the left of the dealer
+            player_list = list(players)
+            dealer_index = player_list.index(game.dealer)
+            player_order = player_list[dealer_index + 1:] + player_list[:dealer_index + 1]
+
+            # Deal hands and associate them with the game
+            hands, remaining_cards = model_deal_hand(deck, players, game)
 
             # Prepare the response
             response = {
@@ -124,8 +194,12 @@ def deal_hand(request):
                     for player, hand in hands.items()
                 },
                 "remaining_cards": [f"{card.rank} of {card.suit}" for card in remaining_cards],
+                "dealer": game.dealer.name,  # Include the dealer
+                "player_order": [player.name for player in player_order],
+                "message": "Hands dealt. Begin trump selection."
             }
             return JsonResponse(response)
+
         except Exception as e:
             print(f"Error in deal_hand: {str(e)}")
             return JsonResponse({"error": str(e)}, status=500)
@@ -177,43 +251,75 @@ def accept_trump(request):
         try:
             player_name = request.POST.get("player")
             card_info = request.POST.get("card")
-            rank, suit = card_info.split(" of ")
-            card = Card.objects.get(rank=rank, suit=suit)
-            player = Player.objects.get(name=player_name)
 
-            # Get the player's current hand
-            player_hand = PlayedCard.objects.filter(player=player)
-            if not player_hand:
-                return JsonResponse({"error": f"{player_name} has no cards in their hand."}, status=400)
+            if not player_name or not card_info:
+                return JsonResponse({"error": "Missing player or card data."}, status=400)
 
-            # Find the worst card in the player's hand
-            def card_rank_value(c):
-                rank_order = ['9', '10', 'J', 'Q', 'K', 'A']
-                return rank_order.index(c.card.rank)
+            # Ensure card is in correct format
+            try:
+                rank, suit = card_info.split(" of ")
+            except ValueError:
+                return JsonResponse({"error": "Invalid card format."}, status=400)
 
-            worst_card = min(player_hand, key=lambda c: card_rank_value(c))
+            # Fetch player and card
+            try:
+                card = Card.objects.get(rank=rank, suit=suit)
+            except Card.DoesNotExist:
+                return JsonResponse({"error": f"Card '{card_info}' does not exist."}, status=400)
 
-            # Replace the worst card with the trump card
-            worst_card.card.is_trump = False  # Reset old card's trump status
-            worst_card.card.save()
+            try:
+                player = Player.objects.get(name=player_name)
+            except Player.DoesNotExist:
+                return JsonResponse({"error": f"Player '{player_name}' does not exist."}, status=400)
 
-            card.is_trump = True
-            card.save()
-            worst_card.card = card
-            worst_card.save()
+            # Fetch latest game
+            try:
+                game = Game.objects.latest('id')
+            except Game.DoesNotExist:
+                return JsonResponse({"error": "No active game found. Please start a game first."}, status=400)
 
-            # Return the discarded card to the deck
-            discarded_card = worst_card.card
-            Card.objects.filter(pk=discarded_card.pk).update(is_trump=False)
+            # Fetch latest hand
+            latest_hand = Hand.objects.filter(game=game).order_by('-id').first()
+            if not latest_hand:
+                return JsonResponse({"error": "No active hand found for the current game."}, status=400)
 
-            # Update the game to reflect the trump suit
-            game = Game.objects.latest('id')
+            # Get player's current hand
+            player_hand = PlayedCard.objects.filter(player=player, hand=latest_hand)
+
+            # Ensure player has space for a new card
+            if player_hand.count() >= 5:
+                # Find lowest non-trump card
+                def card_rank_value(c):
+                    rank_order = ['9', '10', 'J', 'Q', 'K', 'A']
+                    return rank_order.index(c.card.rank)
+
+                non_trump_cards = [pc for pc in player_hand if pc.card.suit != suit]
+                worst_card = min(non_trump_cards or player_hand, key=lambda c: card_rank_value(c))
+
+                # Remove the worst card
+                print(f"Discarding {worst_card.card.rank} of {worst_card.card.suit} from {player.name}")
+                worst_card.delete()
+
+            # Ensure the card is not already in the player's hand
+            if PlayedCard.objects.filter(player=player, card=card, hand=latest_hand).exists():
+                return JsonResponse({"error": "This card is already in the player's hand."}, status=400)
+
+            # Add the new trump card
+            PlayedCard.objects.create(
+                player=player,
+                card=card,
+                hand=latest_hand,
+                order=player_hand.count() + 1  # Ensure correct order
+            )
+
+            # Update the game's trump suit
             game.trump_suit = suit
             game.save()
 
-            # Prepare the updated hand
+            # Retrieve updated hand
             updated_hand = [
-                f"{pc.card.rank} of {pc.card.suit}" for pc in PlayedCard.objects.filter(player=player)
+                f"{pc.card.rank} of {pc.card.suit}"
+                for pc in PlayedCard.objects.filter(player=player, hand=latest_hand)
             ]
 
             return JsonResponse({
@@ -222,12 +328,9 @@ def accept_trump(request):
                 "updated_hand": updated_hand
             })
 
-        except Card.DoesNotExist:
-            return JsonResponse({"error": "Specified card does not exist."}, status=400)
-        except Player.DoesNotExist:
-            return JsonResponse({"error": "Specified player does not exist."}, status=400)
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
+            print(f"Error in accept_trump: {str(e)}")
+            return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)
 
     return JsonResponse({"error": "Invalid request method."}, status=400)
 
@@ -246,7 +349,123 @@ def reset_game(request):
                     Card.objects.create(suit=suit, rank=rank)
 
             return JsonResponse({"message": "Game reset successfully."})
+        
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request method."}, status=400)
+
+@csrf_exempt
+def start_round(request):
+    """
+    Handles starting a new round and plays all 5 tricks at once.
+    """
+    if request.method == "POST":
+        try:
+            game = Game.objects.latest('id')
+
+            # Ensure a previous hand exists in the game
+            if not game.hands.exists():
+                return JsonResponse({"error": "No previous round found. Cannot start a new round."}, status=400)
+
+            # Step 1: Retrieve all players
+            players = Player.objects.all()
+            player_hands = {player: [] for player in players}
+
+            # Step 2: Get the latest hand for the game
+            latest_hand = Hand.objects.filter(game=game).order_by('-id').first()
+            if not latest_hand:
+                return JsonResponse({"error": "No hand found for the current game!"}, status=400)
+
+            # Step 3: Fetch PlayedCards only for this hand and these players
+            unplayed_cards = PlayedCard.objects.filter(hand=latest_hand, player__in=players)
+
+            # Debugging output
+            print(f"Before starting round, total PlayedCards: {unplayed_cards.count()}")
+
+            # Step 4: Assign cards to player_hands
+            for played_card in unplayed_cards:
+                player_hands[played_card.player].append(played_card.card)
+
+            # Debugging: Check card assignments
+            for player, cards in player_hands.items():
+                print(f"{player.name} has {len(cards)} cards AFTER retrieval.")
+
+            # Ensure all players have enough cards before starting the round
+            for player in players:
+                player_cards = player_hands[player]
+                if len(player_cards) < 5:
+                    return JsonResponse({"error": f"{player.name} has {len(player_cards)} cards instead of 5!"}, status=500)
+
+            # Step 5: Play the entire round (all 5 tricks)
+            round_result = start_euchre_round(game)  # Plays **all 5 tricks**
+            
+            return round_result  # Returns JSON with full round data
+
+        except Exception as e:
+            print(f"Error in start_round: {str(e)}")
+            return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+@csrf_exempt
+def get_game_score(request):
+    """
+    Returns the current game score.
+    """
+    try:
+        game = Game.objects.latest('id')
+        return JsonResponse({
+            "team1": game.team1_points,
+            "team2": game.team2_points
+        })
+    except Game.DoesNotExist:
+        return JsonResponse({"error": "No active game found."}, status=400)
+    
+@csrf_exempt
+def get_remaining_cards(request):
+    """
+    Returns a list of all remaining (unplayed) cards in the current round.
+    """
+    try:
+        game = Game.objects.latest('id')
+        latest_hand = Hand.objects.filter(game=game).order_by('-id').first()
+
+        if not latest_hand:
+            return JsonResponse({"error": "No active round found."}, status=400)
+
+        # Get all played cards in this round
+        played_cards = PlayedCard.objects.filter(hand__game=game).values_list('card', flat=True)
+
+        # Get all cards that haven't been played
+        remaining_cards = Card.objects.exclude(id__in=played_cards)
+
+        remaining_cards_list = [f"{card.rank} of {card.suit}" for card in remaining_cards]
+
+        return JsonResponse({"remaining_cards": remaining_cards_list})
+
+    except Exception as e:
+        print(f"Error in get_remaining_cards: {str(e)}")
+        return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)
+    
+@csrf_exempt
+def play_next_trick(request):
+    """
+    Plays the next trick and returns its result.
+    """
+    if request.method == "POST":
+        try:
+            game = Game.objects.latest('id')
+
+            # Play the next trick
+            response = start_euchre_round(game)
+
+            return response  # Returns JSON containing trick details
+
+        except Exception as e:
+            return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+

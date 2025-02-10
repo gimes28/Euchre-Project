@@ -265,3 +265,18 @@
     align-items: center; /* Center vertically */
     height: calc(100% - 20px); /* Deduct height for text and padding, adjust as needed */
 }
+
+#game-score {
+    padding-top: 20px;
+}
+
+#previous-tricks-container {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 10px;
+}
+
+#previous-tricks-body tr td {
+    text-align: center;
+    padding: 5px;
+}

@@ -62,7 +62,7 @@
                         <div class="center-left-text">Opponent 1</div>
                         <div class="center-bottom-text">Player</div>
                         <div class="center-right-text">Opponent 2</div>
-                    
+
                         <!-- Custom Modal inside center rectangle -->
                         <div id="modal-dealer" class="custom-modal">
                             <div class="modal-header">Dealer for This Round</div>
@@ -73,6 +73,20 @@
                                 <button class="ui primary button" id="modal-ok-button">OK</button>
                             </div>
                         </div>
+
+                        <!-- Custom Modal to show Round Results -->
+                        <div id="modal-round" class="custom-modal">
+                            <div class="modal-header">Current Round</div>
+                            <div class="modal-content">
+                                <!-- Dynamic content will be injected here -->
+                            </div>
+                            <div class="modal-actions">
+                                <button class="ui primary button" id="modal-round-button">Start Round</button>
+                                <button class="ui primary button" id="ok-round-button" style="display: none;">OK</button>
+                                <button class="ui red button" id="end-game-button" style="display: none;">End Game</button>
+                            </div>
+                        </div>
+
                         <!-- Trump Card Modal -->
                         <div id="modal-trump" class="custom-modal">
                             <div class="modal-header">Pick Trump Card</div>
@@ -83,15 +97,43 @@
                                 <button class="ui primary button" id="accept-trump-button">Accept</button>
                                 <button class="ui button" id="reject-trump-button">Reject</button>
                                 <button class="ui primary button" id="ok-trump-button" style="display: none;">OK</button>
+                                <button class="ui primary button" id="restart-trump-button" style="display: none;">Next Round</button>
                             </div>
                         </div>
+
                     </div>
                     <div class="rectangle right" id="bot3-card"></div>
-                    <div class="rectangle bottom" id="human-card"></div>
+                    <div class="rectangle bottom" id="human-card">
+                        {% comment %} <span>Your Cards:</span>
+                        <div id="player-hand" class="card-container"></div> {% endcomment %}
+                    </div>
                 </div>
             </div>
             <!-- Cards Played Top Right -->
-            <div class="right-div" style="font-weight: bold;">Previous Tricks</div>
+            <div class="right-div" style="font-weight: bold;">Previous Tricks
+                <div id="previous-tricks-container">
+                    <table class="ui celled table">
+                        <thead>
+                            <tr>
+                                <th>Trick #</th>
+                                <th>Player 1</th>
+                                <th>Card 1</th>
+                                <th>Player 2</th>
+                                <th>Card 2</th>
+                                <th>Player 3</th>
+                                <th>Card 3</th>
+                                <th>Player 4</th>
+                                <th>Card 4</th>
+                                <th>Winner</th>
+                            </tr>
+                        </thead>
+                        <tbody id="previous-tricks-body">
+                            <tr><td colspan="10" style="text-align:center;">No tricks played yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+            </div>
             <!-- Bottom Row -->
             <div class="bottom-div">
                 <!-- Bottom Row Left Half: Two Columns -->
@@ -100,7 +142,10 @@
                     <div class="bottom-left-column-2" style="font-weight: bold;">Game Score</div>
                 </div>
                 <!-- Bottom Row Right Half: One Column -->
-                <div class="bottom-right" style="font-weight: bold;">Remaining Cards</div>
+                <div class="bottom-right" style="font-weight: bold;">
+                    Remaining Cards
+                    <div id="remaining-cards-list"></div>
+                </div>                
             </div>
         </div>
     </div>
