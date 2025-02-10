@@ -11,6 +11,10 @@ from .models import start_euchre_game, start_round, Game, Player, Card, deal_han
 def home(request):
     return render(request, "home.html")  # Reference the template in the root templates directory
 
+# Render the About page
+def about(request):
+    return render(request, "about.html")
+
 # Signup and view to homepage and save the login information
 def signup(request):
     if request.method == 'POST':

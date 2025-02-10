@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- load static folder for custom styles, images, etc. -->
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Euchre App</title>
+
+    <!-- Semantic UI CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Semantic UI JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js"></script>
+</head>
+
+<body>
+    <h1 class="ui center aligned header" style="padding-top: 8px; font-size: 2.5rem !important;">
+        <img src="{% static 'images/euchre-logo.png' %}" alt="Euchre Logo" class="header-logo">
+        Euchre IQ
+    </h1>
+
+    <!-- Toolbar Section -->
+    <div class="ui menu">
+        <a class="item active" href="/">Home</a>
+        <a class="item" href="/todolist/">Todo List</a>
+        <a class="item" href="/about/">About</a>
+        <div class="right menu">
+            {% if user.is_authenticated %}
+            <span class="item">Welcome, {{ user.username }}!</span>
+            <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="ui item button" type="submit">Logout</button>
+            </form>
+            {% else %}
+            <a class="ui item" href="{% url 'login' %}">Login</a>
+            <a class="ui item" href="{% url 'signup' %}">Sign Up</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="ui segment">
+        <div class="ui segment">
+            <h2 class="ui header">To Run the Application</h2>
+            <div class="ui ordered list">
+                <div class="item">Make sure you run <code>pip install Django</code> in the terminal console.</div>
+                <div class="item">Set path to <code>./App/euchreapp</code>.</div>
+                <div class="item">In the terminal, run <code>python manage.py runserver</code>.</div>
+                <div class="item">In a browser, go to <code>http://127.0.0.1:8000/</code> to view the site on localhost.
+                </div>
+                <div class="item">The initial view is the homepage; new login profiles can be created.</div>
+                <div class="item">Navigate to the to-do list by clicking the "To-Do List" button on the homepage
+                    toolbar.
+                </div>
+                <div class="item">SQLite3 database stores the to-do list, users, and game data.</div>
+                <div class="item">Use <code>F12</code> to see GET/POST requests when using the site.</div>
+                <div class="item">Admin site: <code>http://127.0.0.1:8000/admin/</code></div>
+                <div class="item">Admin login: <b>Username:</b> <code>admin</code>, <b>Password:</b>
+                    <code>adminpassword</code>
+                </div>
+                <div class="item">Database updates reflect in Git when pushing changes.</div>
+            </div>
+        </div>
+        <div class="ui segment">
+            <h2 class="ui header">Euchre Rules</h2>
+            <h3 class="ui header">Before Game Start</h3>
+            <div class="ui bulleted list">
+                <div class="item">A player will continuely deals cards to each person from the deck to determine the
+                    first dealer. The desk consists of 9s, 10s, Jacks, Queens, Kings and Aces. The person who receives
+                    the first black Jack will be the dealer for the first trick.
+                </div>
+                <div class="item">The dealer alternates passing out 2 and 3 cards to each person playing. Pass out cards
+                    until each person has 5 cards and you have 4 cards remaining in your hand.
+                </div>
+                <div class="item">The dealer flips the top card to determine the potential trump suit. The trump suit is
+                    considered the highest suit of that round.</div>
+                <div class="item">
+                    Players go around the table once, giving someone the chance to tell the dealer to pick
+                    up the flipped-over card (which declares the suit as trump or the highest).
+                    <ul>
+                        <div>For instance, if you have a handful of diamonds and the flipped card is a high
+                            diamond (and if you or your partner are the dealer), you would want to call that card as
+                            trump. If you are told by your partner to pick up the card, then you must discard a card
+                            from your hand (you can choose, so I would recommend a off-suited low-value card).
+                        </div>
+                    </ul>
+                </div>
+                <div class="item">
+                    If all players pass on the first round, the dealer must flip over the card to prepare for a second
+                    round, in which people can arbitrarily call for which suit they want as the trump suit. If all
+                    players pass on the second go around, the dealer is forced to choose a suit to be
+                    trump.
+                </div>
+                <div class="item">The “right bower” is the highest card in the trick and the “left bower” is the
+                    second-highest card. Both bowers are jacks of the same color, and they depend on which card was
+                    called the trump suit. For instance, if hearts are trump for that trick, the right bower would be
+                    the jack of hearts and the left bower would be the jack of diamonds.
+                    <ul>
+                        <div>If a red suit (hearts or diamonds) is called trump, then the black jacks remain at
+                            the same hierachy, better than a 9 and 10 but less than a Queen, King and Ace.
+                        </div>
+                    </ul>
+                </div>
+            </div>
+            <h3 class="ui header">Gameplay</h3>
+            <div class="ui ordered list">
+                <div class="item">The starting player (the person that is left to the dealer) puts down their lead card
+                    (this
+                    should be the highest card that the player has — preferably in the trump suit). The suit of the card
+                    that is
+                    led must be followed by the rest of the players.
+                    <ul>
+                        <div>For example, if a diamond is the suit of the card played, then all other players must
+                            “follow
+                            suit”
+                            and play a diamond if they have it.
+                        </div>
+                    </ul>
+                </div>
+                <div class="item">If unable to follow suit, players can play any card from their hand. There an be 2
+                    things you can do
+                    <div class="ui ordered list">
+                        <div class="item">
+                            You can play a trump card and trump cards win the trick if it is the highest card played. Be
+                            aware that other players could also play trump cards that are bigger than yours.
+                        </div>
+                        <div class="item">If you do you not have a
+                            card of the same suit that was lead or don't have a trump card, then you do what is called
+                            "throwing off" which is when you throw a low off-suited card that you know can't win but
+                            gets low cards out of your hand.
+                        </div>
+                    </div>
+                </div>
+                <div class="item">A team gains points if they win a majority of tricks. For attackers (if your team
+                    initially called the trump suit), you gain a point for winning three or four tricks and two points
+                    for winning five. For defenders (if the other team called trump), you gain two points if your team
+                    wins the at least 3 of the 5 tricks.
+                </div>
+                <div class="item">Play each trick until you run out of cards then the next dealer is the person to the
+                    left of the previous dealer. Continue repeating these steps and when one team reaches 10 points, the
+                    game is over and that team is victorious!
+                </div>
+            </div>
+
+            <h3 class="ui header">Other Rules (Possible Implementation)</h3>
+            <div class="ui bulleted list">
+                <div class="item">If you have a great hand, you can choose to play this trick alone (“go alone”), which
+                    exempts your partner from playing in that trick. “Going alone” can be a good strategy because your
+                    team can get 4 points in that trick if you get all of the trick. If you are “Going alone” and don't
+                    get all of the tricks, your team will only receive 1 point.
+                </div>
+            </div>
+            <h3 class="ui header">Alternate Rules</h3>
+            <p><a href="https://www.youtube.com/watch?v=NJJxUYs6Tgk" target="_blank">Euchre Rules Video</a></p>
+        </div>
+    </div>
+</body>
+
+</html>

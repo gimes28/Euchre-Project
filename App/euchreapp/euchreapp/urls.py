@@ -24,6 +24,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('homepage.urls')),  # Homepage routes
     path('todolist/', include('todolist.urls')),  # Todo List routes
+    path('about/', homepage_views.about),
     path('login/', CustomLoginView.as_view(), name='login'),  # Login
     path('logout/', auth_views.LogoutView.as_view(next_page='/'), name='logout'),  # Logout and redirect back to homepage
     path('signup/', homepage_views.signup, name='signup'),  # Sign Up
