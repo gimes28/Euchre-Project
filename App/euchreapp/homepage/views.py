@@ -151,7 +151,7 @@ def deal_next_hand(request):
                 },
                 "dealer": game.dealer.name,  # Include the new dealer
                 "remaining_cards": [f"{card.rank} of {card.suit}" for card in remaining_cards],
-                "player_order": [player.name for player in player_order],
+                "player_order": [{"name": player.name, "is_human": player.is_human} for player in player_order],
                 "message": "New hands dealt. Begin trump selection."
             }
 
@@ -195,7 +195,7 @@ def deal_hand(request):
                 },
                 "remaining_cards": [f"{card.rank} of {card.suit}" for card in remaining_cards],
                 "dealer": game.dealer.name,  # Include the dealer
-                "player_order": [player.name for player in player_order],
+                "player_order": [{"name": player.name, "is_human": player.is_human} for player in player_order],
                 "message": "Hands dealt. Begin trump selection."
             }
             return JsonResponse(response)
@@ -253,6 +253,7 @@ def accept_trump(request):
             card_info = request.POST.get("card")
 
             if not player_name or not card_info:
+                print(f"Missing player or card data: {player_name}, {card_info}")
                 return JsonResponse({"error": "Missing player or card data."}, status=400)
 
             # Ensure card is in correct format

@@ -73,7 +73,11 @@ $(document).ready(function () {
     
         if (currentPlayerIndex < playerOrder.length) {
             setTimeout(() => {
-                showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex]);
+                if (playerOrder[currentPlayerIndex].is_human == true) {
+                    showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex].name);
+                } else {
+                    rejectTrump(playerOrder[currentPlayerIndex]); // TEMP: Have to implement ordering or passing trump logic for bots.
+                }
             }, 400); // Delay prevents modal flickering
         } else {
             $("#modal-trump").fadeOut();
@@ -103,7 +107,7 @@ $(document).ready(function () {
     
         $("#modal-round .modal-content").html(`
             <p>${message}</p>
-            <p><strong>Order of Play:</strong> ${playerOrder.join(", ")}</p>
+            <p><strong>Order of Play:</strong> ${playerOrder.map(player => player.name).join(", ")}</p>
         `);
 
         // Hide unnecessary buttons
@@ -197,7 +201,15 @@ $(document).ready(function () {
                 }
 
                 // Start the trump card selection process
-                showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex]);
+                if (playerOrder[currentPlayerIndex].is_human == true) {
+                    if (playerOrder[currentPlayerIndex].is_human == true) {
+                        showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex].name);
+                    } else {
+                        rejectTrump(playerOrder[currentPlayerIndex]); // ***** TEMP: Have to implement ordering or passing trump logic for bots.
+                    }
+                } else {
+                    rejectTrump(playerOrder[currentPlayerIndex]);
+                }
             },
             error: function (xhr) {
                 alert("An error occurred while dealing the hand: " + xhr.responseText);
@@ -225,7 +237,11 @@ $(document).ready(function () {
     $("#reject-trump-button").click(function () {
         currentPlayerIndex++;
         if (currentPlayerIndex <= 3) {
-            showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex]);
+            if (playerOrder[currentPlayerIndex].is_human == true) {
+                showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex].name);
+            } else {
+                rejectTrump(playerOrder[currentPlayerIndex]); // TEMP: Have to implement ordering or passing trump logic for bots.
+            }
         } else {
             showFinalMessage("No one accepted the trump card.");
             trumpSelected = false;
@@ -437,7 +453,11 @@ $(document).ready(function () {
 
                 // 🔥 Start trump selection process with the first trump card
                 if (response.remaining_cards.length > 0) {
-                    showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex]);
+                    if (playerOrder[currentPlayerIndex].is_human == true) {
+                        showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex].name);
+                    } else {
+                        rejectTrump(playerOrder[currentPlayerIndex]); // TEMP: Have to implement ordering or passing trump logic for bots.
+                    }
                 } else {
                     console.error("Error: No remaining cards for trump selection!");
                 }
