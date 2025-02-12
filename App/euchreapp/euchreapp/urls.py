@@ -28,4 +28,5 @@ urlpatterns = [
     path('login/', CustomLoginView.as_view(), name='login'),  # Login
     path('logout/', auth_views.LogoutView.as_view(next_page='/'), name='logout'),  # Logout and redirect back to homepage
     path('signup/', homepage_views.signup, name='signup'),  # Sign Up
+    path('about/', homepage_views.about, name='about'),  # About
 ]

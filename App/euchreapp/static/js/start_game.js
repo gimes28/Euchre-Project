@@ -26,30 +26,81 @@ $(document).ready(function () {
         $("#modal-dealer").fadeOut();
         $("#reject-trump-button").show();
         $("#accept-trump-button").show();
+        $(".suit-button").hide();
         $("#modal-trump .modal-content").html(`
             <p><strong>Trump Card:</strong> ${card}</p>
             <p><strong>${player}</strong>, do you want to make this the trump card?</p>
         `);
+
+        $("#reject-trump-button").prop("disabled", false);
     
         // Ensure buttons are properly assigned new handlers
         $("#accept-trump-button").off("click").on("click", function () {
             $("#modal-trump").fadeOut(); // Hide the modal before proceeding
-            acceptTrump(player, card);
+            acceptTrump(player, card, 1);
         });
     
         $("#reject-trump-button").off("click").on("click", function () {
             $("#modal-trump").fadeOut(); // Hide modal before moving to the next player
-            rejectTrump(player);
+            rejectTrump(player, 1);
         });
     
         $("#modal-trump").fadeIn(); // Ensure modal appears properly
     }    
+    
+    // Function to display the trump card modal for the 2nd round of trump selection
+    function showTrumpCardDialog2ndRound(upCardSuit, player) {
+        $("#start-game-button").hide();
+        $("#ok-round-button").hide();
+        $("#modal-round").fadeOut();
+        $("#modal-dealer").fadeOut();
+        $("#reject-trump-button").show();
+        $("#accept-trump-button").hide();
+        $(".suit-button").show();
+        $("#modal-trump .modal-content").html(`
+            <p><strong>${player}</strong>, select a trump suit or pass:</p>
+        `);
 
-    function acceptTrump(player, card) {
+        // Enable all suit buttons
+        $(".suit-button").prop("disabled", false);
+        $("#reject-trump-button").prop("disabled", false);
+
+        // Disable the button for the upcard suit
+        $(`.suit-button[data-suit="${upCardSuit}"]`).prop("disabled", true);
+
+        // Disable the pass button if player is the dealer
+        if (player === dealer) {
+            $("#reject-trump-button").prop("disabled", true);
+        }
+
+        $(".suit-button").off("click").on("click", function () {
+            const selectedSuit = $(this).data("suit");
+            $("#modal-trump").fadeOut(); // Hide the modal before proceeding
+            acceptTrump(player, selectedSuit, 2);
+        });
+
+        $("#reject-trump-button").off("click").on("click", function () {
+            $("#modal-trump").fadeOut();
+            rejectTrump(player, 2);
+        });
+
+        $("#modal-trump").fadeIn(); // Ensure modal appears properly
+    }    
+
+    function acceptTrump(player, card, trumpRound) {
+        const data = { player: dealer, trump_round: trumpRound };
+
+        if (trumpRound === 1) {
+            data.card = card;
+        } else if (trumpRound === 2) {
+            data.suit = card; // The card is actually the selected suit
+        }
+        trumpRound = 1; // Reset the trump round to 1 after accepting trump
+
         $.ajax({
             url: "/accept-trump/",
             type: "POST",
-            data: { player: player, card: card },
+            data: data,
             success: function (response) {
                 trumpSelected = true;
                 currentSuit = response.trump_suit;
@@ -60,7 +111,7 @@ $(document).ready(function () {
     
                 // Hide trump modal and show round start confirmation
                 $("#modal-trump").fadeOut();
-                showRoundStart(`${player} accepted trump! The suit is now ${currentSuit}.`);
+                showRoundStart(`${player} accepted trump! The trump suit is now ${currentSuit}.`);
             },
             error: function (xhr) {
                 alert("Error accepting trump: " + xhr.responseText);
@@ -68,23 +119,35 @@ $(document).ready(function () {
         });
     }
     
-    function rejectTrump(player) {
+    function rejectTrump(player, trumpRound) {
         currentPlayerIndex++;
     
         if (currentPlayerIndex < playerOrder.length) {
-            setTimeout(() => {
+            if (trumpRound === 1) {
+                setTimeout(() => {
                 if (playerOrder[currentPlayerIndex].is_human == true) {
                     showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex].name);
                 } else {
                     rejectTrump(playerOrder[currentPlayerIndex]); // TEMP: Have to implement ordering or passing trump logic for bots.
                 }
             }, 400); // Delay prevents modal flickering
+            } else if (trumpRound === 2) {
+                setTimeout(() => {
+                    showTrumpCardDialog2ndRound(gameResponse.remaining_cards[0].split(" of ")[1], playerOrder[currentPlayerIndex]);
+                }, 400); // Delay prevents modal flickering
+            }
         } else {
-            $("#modal-trump").fadeOut();
-            showFinalMessage("No one accepted the trump card. Proceeding without a trump suit.");
+            // Everyone passed in first round, so start second round
+            trumpRound = 2;
+            currentPlayerIndex = 0;
+            
+            // Give trump dialog box, but this time player can select any suit except for the upCardSuit
+            setTimeout(() => {
+                showTrumpCardDialog2ndRound(gameResponse.remaining_cards[0].split(" of ")[1], playerOrder[currentPlayerIndex]);
+            }, 400);
         }
     }
-    
+
     // Function to display the final message before round starts
     function showFinalMessage(message) {
         $("#modal-trump .modal-content").html(`
