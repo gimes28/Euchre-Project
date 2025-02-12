@@ -88,7 +88,7 @@ $(document).ready(function () {
     }    
 
     function acceptTrump(player, card, trumpRound) {
-        const data = { player: player, trump_round: trumpRound };
+        const data = { player: dealer, trump_round: trumpRound };
 
         if (trumpRound === 1) {
             data.card = card;
