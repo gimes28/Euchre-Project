@@ -1,12 +1,47 @@
 <!DOCTYPE html>
-<html lang="en">
 <head>
+    <!-- load static folder for custom styles, images, etc. -->
+    {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up</title>
+    <title>Euchre IQ</title>
+
+    <!-- Semantic UI CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Semantic UI JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js"></script> 
 </head>
 <body>
+    <h1 class="ui center aligned header" style="padding-top: 8px; font-size: 2.5rem !important;">
+        <img src="{% static 'images/euchre-logo.png' %}" alt="Euchre Logo" class="header-logo">
+        Euchre IQ
+    </h1>
+
+    <!-- Toolbar Section -->
+    <div class="ui menu">
+        <a class="item active" href="/">Home</a>
+        <a class="item" href="/todolist/">Todo List</a>
+        <a class="item" href="/about/">About</a>
+        <div class="right menu">
+            {% if user.is_authenticated %}
+                <span class="item">Welcome, {{ user.username }}!</span>
+                <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button class="ui item button" type="submit">Logout</button>
+                </form>
+            {% else %}
+                <a class="ui item" href="{% url 'login' %}">Login</a>
+                <a class="ui item" href="{% url 'signup' %}">Sign Up</a>
+            {% endif %}
+        </div>
+    </div>
     <div class="ui container" style="margin-top: 50px;">
         <h2 class="ui dividing header">Sign Up</h2>
         <form method="post" class="ui form">
