@@ -249,24 +249,15 @@ def pick_trump(request):
 def accept_trump(request):
     if request.method == "POST":
         try:
+            trump_round = request.POST.get("trump_round")
             player_name = request.POST.get("player")
-            card_info = request.POST.get("card")
 
-            if not player_name or not card_info:
-                return JsonResponse({"error": "Missing player or card data."}, status=400)
-
-            # Ensure card is in correct format
-            try:
-                rank, suit = card_info.split(" of ")
-            except ValueError:
-                return JsonResponse({"error": "Invalid card format."}, status=400)
-
-            # Fetch player and card
-            try:
-                card = Card.objects.get(rank=rank, suit=suit)
-            except Card.DoesNotExist:
-                return JsonResponse({"error": f"Card '{card_info}' does not exist."}, status=400)
-
+            if not trump_round:
+                return JsonResponse({"error": "Missing trump round data."}, status=400)
+            if not player_name:
+                return JsonResponse({"error": "Missing player data."}, status=400)
+            
+            # Fetch player
             try:
                 player = Player.objects.get(name=player_name)
             except Player.DoesNotExist:
@@ -283,50 +274,84 @@ def accept_trump(request):
             if not latest_hand:
                 return JsonResponse({"error": "No active hand found for the current game."}, status=400)
 
-            # Get player's current hand
-            player_hand = PlayedCard.objects.filter(player=player, hand=latest_hand)
+            # Handle round 1 of trump selection
+            if trump_round == "1":
+                card_info = request.POST.get("card")
+                if not card_info:
+                    return JsonResponse({"error": "Missing card data."}, status=400)
 
-            # Ensure player has space for a new card
-            if player_hand.count() >= 5:
-                # Find lowest non-trump card
-                def card_rank_value(c):
-                    rank_order = ['9', '10', 'J', 'Q', 'K', 'A']
-                    return rank_order.index(c.card.rank)
+                # Ensure card is in correct format
+                try:
+                    rank, suit = card_info.split(" of ")
+                except ValueError:
+                    return JsonResponse({"error": "Invalid card format."}, status=400)
 
-                non_trump_cards = [pc for pc in player_hand if pc.card.suit != suit]
-                worst_card = min(non_trump_cards or player_hand, key=lambda c: card_rank_value(c))
+                # Fetch card
+                try:
+                    card = Card.objects.get(rank=rank, suit=suit)
+                except Card.DoesNotExist:
+                    return JsonResponse({"error": f"Card '{card_info}' does not exist."}, status=400)
 
-                # Remove the worst card
-                print(f"Discarding {worst_card.card.rank} of {worst_card.card.suit} from {player.name}")
-                worst_card.delete()
+                # Get player's current hand
+                player_hand = PlayedCard.objects.filter(player=player, hand=latest_hand)
 
-            # Ensure the card is not already in the player's hand
-            if PlayedCard.objects.filter(player=player, card=card, hand=latest_hand).exists():
-                return JsonResponse({"error": "This card is already in the player's hand."}, status=400)
+                # Ensure player has space for a new card
+                if player_hand.count() >= 5:
+                    # Find lowest non-trump card
+                    def card_rank_value(c):
+                        rank_order = ['9', '10', 'J', 'Q', 'K', 'A']
+                        return rank_order.index(c.card.rank)
 
-            # Add the new trump card
-            PlayedCard.objects.create(
-                player=player,
-                card=card,
-                hand=latest_hand,
-                order=player_hand.count() + 1  # Ensure correct order
-            )
+                    non_trump_cards = [pc for pc in player_hand if pc.card.suit != suit]
+                    worst_card = min(non_trump_cards or player_hand, key=lambda c: card_rank_value(c))
 
-            # Update the game's trump suit
-            game.trump_suit = suit
-            game.save()
+                    # Remove the worst card
+                    print(f"Discarding {worst_card.card.rank} of {worst_card.card.suit} from {player.name}")
+                    worst_card.delete()
+                
+                # Ensure the card is not already in the player's hand
+                if PlayedCard.objects.filter(player=player, card=card, hand=latest_hand).exists():
+                    return JsonResponse({"error": "This card is already in the player's hand."}, status=400)
 
-            # Retrieve updated hand
-            updated_hand = [
-                f"{pc.card.rank} of {pc.card.suit}"
-                for pc in PlayedCard.objects.filter(player=player, hand=latest_hand)
-            ]
+                # Add the new trump card
+                PlayedCard.objects.create(
+                    player=player,
+                    card=card,
+                    hand=latest_hand,
+                    order=player_hand.count() + 1  # Ensure correct order
+                )
 
-            return JsonResponse({
-                "message": f"{player_name} accepted the trump card.",
-                "trump_suit": suit,
-                "updated_hand": updated_hand
-            })
+                # Retrieve updated hand
+                updated_hand = [
+                    f"{pc.card.rank} of {pc.card.suit}"
+                    for pc in PlayedCard.objects.filter(player=player, hand=latest_hand)
+                ]
+
+                # Update the game's trump suit
+                game.trump_suit = suit
+                game.save()
+
+                return JsonResponse({
+                    "trump_suit": suit,
+                    "updated_hand": updated_hand
+                })
+
+            # Handle round 2 of trump selection
+            elif trump_round == "2":
+                suit = request.POST.get("suit")
+
+                if not suit:
+                    return JsonResponse({"error": "Missing suit data."}, status=400)
+
+                # Update the game's trump suit
+                game.trump_suit = suit
+                game.save()
+                
+                return JsonResponse({
+                    "trump_suit": suit
+                })
+            
+            return JsonResponse({"error": "Invalid trump round."}, status=400)
 
         except Exception as e:
             print(f"Error in accept_trump: {str(e)}")
