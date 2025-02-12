@@ -128,12 +128,16 @@ $(document).ready(function () {
                 if (playerOrder[currentPlayerIndex].is_human == true) {
                     showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex].name);
                 } else {
-                    rejectTrump(playerOrder[currentPlayerIndex]); // TEMP: Have to implement ordering or passing trump logic for bots.
+                    rejectTrump(playerOrder[currentPlayerIndex], 1); // TEMP: Have to implement ordering or passing trump logic for bots.
                 }
             }, 400); // Delay prevents modal flickering
             } else if (trumpRound === 2) {
                 setTimeout(() => {
-                    showTrumpCardDialog2ndRound(gameResponse.remaining_cards[0].split(" of ")[1], playerOrder[currentPlayerIndex]);
+                    if (playerOrder[currentPlayerIndex].is_human == true) {
+                        showTrumpCardDialog2ndRound(gameResponse.remaining_cards[0].split(" of ")[1], playerOrder[currentPlayerIndex].name);
+                    } else {
+                        rejectTrump(playerOrder[currentPlayerIndex], 1); // TEMP: Have to implement ordering or passing trump logic for bots.
+                    }
                 }, 400); // Delay prevents modal flickering
             }
         } else {
@@ -143,7 +147,7 @@ $(document).ready(function () {
             
             // Give trump dialog box, but this time player can select any suit except for the upCardSuit
             setTimeout(() => {
-                showTrumpCardDialog2ndRound(gameResponse.remaining_cards[0].split(" of ")[1], playerOrder[currentPlayerIndex]);
+                showTrumpCardDialog2ndRound(gameResponse.remaining_cards[0].split(" of ")[1], playerOrder[currentPlayerIndex].name);
             }, 400);
         }
     }
@@ -268,10 +272,10 @@ $(document).ready(function () {
                     if (playerOrder[currentPlayerIndex].is_human == true) {
                         showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex].name);
                     } else {
-                        rejectTrump(playerOrder[currentPlayerIndex]); // ***** TEMP: Have to implement ordering or passing trump logic for bots.
+                        rejectTrump(playerOrder[currentPlayerIndex], 1); // ***** TEMP: Have to implement ordering or passing trump logic for bots.
                     }
                 } else {
-                    rejectTrump(playerOrder[currentPlayerIndex]);
+                    rejectTrump(playerOrder[currentPlayerIndex], 1);
                 }
             },
             error: function (xhr) {
@@ -303,7 +307,7 @@ $(document).ready(function () {
             if (playerOrder[currentPlayerIndex].is_human == true) {
                 showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex].name);
             } else {
-                rejectTrump(playerOrder[currentPlayerIndex]); // TEMP: Have to implement ordering or passing trump logic for bots.
+                rejectTrump(playerOrder[currentPlayerIndex], 1); // TEMP: Have to implement ordering or passing trump logic for bots.
             }
         } else {
             showFinalMessage("No one accepted the trump card.");
@@ -512,14 +516,14 @@ $(document).ready(function () {
 
                 // Update UI with new hands
                 displayDealtCards(response);
-                initializeDealerModal(response);
+                //initializeDealerModal(response);
 
                 // 🔥 Start trump selection process with the first trump card
                 if (response.remaining_cards.length > 0) {
                     if (playerOrder[currentPlayerIndex].is_human == true) {
                         showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex].name);
                     } else {
-                        rejectTrump(playerOrder[currentPlayerIndex]); // TEMP: Have to implement ordering or passing trump logic for bots.
+                        rejectTrump(playerOrder[currentPlayerIndex], 1); // TEMP: Have to implement ordering or passing trump logic for bots.
                     }
                 } else {
                     console.error("Error: No remaining cards for trump selection!");
