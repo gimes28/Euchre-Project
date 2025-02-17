@@ -3,6 +3,7 @@ from django.db.models import Max
 from random import shuffle
 from django.http import JsonResponse
 import time
+import traceback
 
 
 # Create your models here.
@@ -62,11 +63,12 @@ class PlayedCard(models.Model):
     card = models.ForeignKey(Card, on_delete=models.CASCADE)
     order = models.IntegerField()
 
+    # REMOVE UNIQUE CONSTRAINT
     class Meta:
-        unique_together = ('player', 'card')
+        unique_together = None  # REMOVE ANY UNIQUE CONSTRAINTS ON THIS MODEL
 
     def __str__(self):
-        return f"{self.player.name} played {self.card}"
+        return f"{self.player.name} played {self.card.rank} of {self.card.suit} in Game {self.hand.game.id}"
 
 
 class GameResult(models.Model):
@@ -106,73 +108,66 @@ def initialize_game(players):
     return game, deck
 
 
-# def deal_cards(deck, players):
-#     """
-#     Deals 5 cards to each player and updates the database.
-#     """
-#     hands = {player: [] for player in players}
-#     for _ in range(5):
-#         for player in players:
-#             card = deck.pop()
-#             hands[player].append(card)
-#             # Assign card to the player in the database if necessary
-#             # Example: Assign cards to a `PlayerCard` model
-#     return hands
 
 def deal_hand(deck, players, game):
     """
-    Deals a hand of 5 cards to each player and creates PlayedCard objects.
+    Deals a hand of 5 unique cards to each player while ensuring no duplicate assignments.
     """
-    if not game:
-        raise ValueError("No game provided. Please start a new game.")
+    try:
+        print("📢 deal_hand() function was called!")  
 
-    if not deck or len(deck) < len(players) * 5:
-        raise ValueError("Not enough cards in the deck to deal a full hand.")
+        if not game:
+            print("🚨 ERROR: No active game found!")
+            return {}, []
 
-    # Clear PlayedCard objects only if it's a new round
-    PlayedCard.objects.filter(hand__game=game).delete()
+        # **Step 1: Ensure we have enough unique cards**
+        deck_size = len(deck)
+        print(f"🔥 DEBUG: Deck size before dealing: {deck_size} (Expected: 24 cards)")
 
-    # Create a new Hand for this round
-    hand = Hand.objects.create(
-        game=game,
-        dealer=game.dealer,
-        trump_suit=game.trump_suit
-    )
+        if deck_size < len(players) * 5:
+            return JsonResponse({"error": "Not enough unique cards left in deck!"}, status=500)
 
-    # 🔥 Debug: Check deck size before dealing
-    print(f"DEBUG: Deck size before dealing: {len(deck)}")
+        # **Step 2: Create a new hand**
+        hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit)
 
-    # Initialize hands for each player
-    hands = {player: [] for player in players}
+        # **Step 3: Assign Cards**
+        hands = {player: [] for player in players}
+        assigned_cards = set()
 
-    # Deal cards to each player
-    for player in players:
-        for _ in range(5):
-            if deck:
-                card = deck.pop()
+        for _ in range(5):  
+            for player in players:
+                if not deck:
+                    print("🚨 ERROR: Deck ran out of cards while dealing!")
+                    return JsonResponse({"error": "🔥 ERROR: Ran out of unique cards while dealing!"}, status=500)
 
-                # 🔥 Ensure the card is not already assigned to another player
-                existing_entry = PlayedCard.objects.filter(player=player, card=card).exists()
-                if existing_entry:
-                    raise ValueError(f"🔥 ERROR: Duplicate card detected: {card.rank} of {card.suit} for {player.name}!")
+                card = deck.pop(0)
 
+                while card in assigned_cards:
+                    deck.append(card)  
+                    if not deck:
+                        print("🚨 ERROR: No more available unique cards!")
+                        return JsonResponse({"error": "🔥 ERROR: No more available unique cards!"}, status=500)
+                    card = deck.pop(0)
+
+                assigned_cards.add(card)
                 hands[player].append(card)
 
-                # Save played card in database
                 PlayedCard.objects.create(
                     player=player,
                     card=card,
                     hand=hand,
                     order=len(hands[player])
                 )
-            else:
-                raise ValueError(f"🔥 ERROR: Not enough cards left in deck to deal a full hand!")
 
-    # 🔥 Debug: Check each player's hand size
-    for player, hand in hands.items():
-        print(f"DEBUG: {player.name} was dealt {len(hand)} cards.")
+        # Debugging: Print hands before returning
+        print(f"🔥 DEBUG: Hands dealt: {hands}")
 
-    return hands, deck
+        return hands, deck  # **Ensure this returns a tuple of (hands, remaining_cards)**
+
+    except Exception as e:
+        print(f"🚨 ERROR in deal_hand(): {str(e)}")
+        return {}, []
+
 
 
 
@@ -184,6 +179,7 @@ def assign_trump(deck, trump_suit):
         card.is_trump = card.suit == trump_suit
         card.save()
     
+
 
 def determine_best_card(hand, trump_suit, played_cards):
     """
@@ -235,49 +231,6 @@ def determine_best_card(hand, trump_suit, played_cards):
 
 
 
-    
-# def evaluate_trick_winner(trump_suit, played_cards):
-#     """
-#     Determines the winner of the current trick based on Euchre rules.
-    
-#     Args:
-#         trump_suit (str): The trump suit for the current hand.
-#         played_cards (QuerySet): The cards that have been played in the trick.
-
-#     Returns:
-#         Player: The player who won the trick.
-#     """
-#     if not played_cards:
-#         return None
-
-#     # Determine the lead suit (first card played)
-#     lead_suit = played_cards[0].card.suit if played_cards else None
-
-#     # Determine the Left Bower suit (same color as trump)
-#     left_bower_suit = "clubs" if trump_suit == "spades" else \
-#                       "spades" if trump_suit == "clubs" else \
-#                       "diamonds" if trump_suit == "hearts" else "hearts"
-
-#     # Helper function to determine Euchre rank value
-#     def euchre_rank(card):
-#         """ Assigns rank values based on Euchre hierarchy. """
-#         if card.rank == "J":
-#             if card.suit == trump_suit:
-#                 return 20  # Right Bower (Highest)
-#             elif card.suit == left_bower_suit:
-#                 return 19  # Left Bower (2nd Highest)
-#         if card.suit == trump_suit:
-#             return 10 + ["9", "10", "Q", "K", "A"].index(card.rank)  # Higher value for trump
-#         if card.suit == lead_suit:
-#             return 5 + ["9", "10", "J", "Q", "K", "A"].index(card.rank)  # Next priority: lead suit
-#         return ["9", "10", "J", "Q", "K", "A"].index(card.rank)  # Lowest priority: off-suit
-
-#     # Determine the highest-ranked card
-#     winning_card = max(played_cards, key=lambda pc: euchre_rank(pc.card))
-
-#     # Return the player who played the winning card
-#     return winning_card.player
-
 def evaluate_trick_winner(trump_suit, played_cards):
     """
     Determines the winner of the current trick based on Euchre rules.
@@ -308,57 +261,6 @@ def evaluate_trick_winner(trump_suit, played_cards):
     return winning_card.player
 
 
-
-# def update_game_results(game):
-#     """
-#     Updates the game results based on hands played.
-#     Assigns points to the winning team and checks if a team has reached 10 points.
-#     """
-#     results = {"team1": 0, "team2": 0}
-
-#     # Calculate the number of hands won by each team
-#     for hand in game.hands.all():
-#         winning_player = hand.winner
-#         if winning_player:
-#             if winning_player.name in ["Human", "Bot2"]:  # Team 1: Human + Bot2
-#                 results["team1"] += 1
-#             else:  # Team 2: Bot1 + Bot3
-#                 results["team2"] += 1
-
-#     # Assign points based on hands won in the round
-#     if results["team1"] >= 3:
-#         if results["team1"] == 5:
-#             game.team1_points += 2  # Team 1 wins all hands
-#         else:
-#             game.team1_points += 1  # Team 1 wins 3 or more hands
-#     if results["team2"] >= 3:
-#         if results["team2"] == 5:
-#             game.team2_points += 2  # Team 2 wins all hands
-#         else:
-#             game.team2_points += 1  # Team 2 wins 3 or more hands
-
-#     game.save()
-
-#     # Check if a team has reached 10 points
-#     if game.team1_points >= 10 or game.team2_points >= 10:
-#         # Check if a GameResult already exists
-#         if not GameResult.objects.filter(game=game).exists():
-#             # Determine the winning team
-#             winner = None
-#             if game.team1_points >= 10:
-#                 winner = Player.objects.filter(name="Human").first()  # Human's team wins
-#             else:
-#                 winner = Player.objects.filter(name__in=["Bot1", "Bot3"]).first()  # Bot's team wins
-
-#             # Create GameResult for the game
-#             GameResult.objects.create(
-#                 game=game,
-#                 winner=winner,
-#                 total_hands=game.hands.count(),
-#                 points={"team1": game.team1_points, "team2": game.team2_points},
-#             )
-
-#         print(f"Game over! Winner: {'Team 1' if game.team1_points >= 10 else 'Team 2'}")
 
 def update_game_results(game, team1_tricks, team2_tricks):
     """
@@ -403,6 +305,7 @@ def reset_round_state(game):
     shuffle(deck)  # Ensures cards are shuffled properly before dealing
 
     return deck
+
 
 
 def rotate_dealer(game):
@@ -456,53 +359,6 @@ def play_card(player, hand, card, player_hands, game):
     # Remove the card from the player's hand
     player_hands[player].remove(card)
 
-    
-
-# def play_card(player, hand, card, player_hands, game):
-#     """
-#     Plays a card for a player, removing it from their hand and adding it to the PlayedCard model.
-
-#     Args:
-#         player (Player): The player who is playing the card.
-#         hand (Hand): The current hand being played.
-#         card (Card): The card to play.
-#         player_hands (dict): A dictionary mapping players to their current hands.
-
-#     Raises:
-#         ValueError: If the card is not in the player's hand.
-#     """
-    
-#     if player.is_human:
-#         print(f"{player.name}, choose a card to play from: {[str(c) for c in player_hands[player]]}")
-#         return  # Wait for user input via frontend
-    
-#     # Ensure the card is in the player's hand
-#     if card is None:
-#         raise ValueError(f"Invalid card provided for player {player.name}.")
-
-#     if card not in player_hands[player]:
-#         raise ValueError(f"{card} is not in {player.name}'s hand.")
-
-#     # Delete any existing PlayedCard entry for this player-card combination
-#     PlayedCard.objects.filter(player=player, card=card).delete()
-
-#     # Create a new PlayedCard entry for the current hand
-#     PlayedCard.objects.create(
-#         hand=hand,
-#         player=player,
-#         card=card,
-#         order=len(hand.played_cards.all()) + 1  # Set the correct play order
-#     )
-    
-#     # If trump_suit is not set, establish it with the first played card
-#     if game.trump_suit is None:
-#         game.trump_suit = card.suit
-#         game.save()
-#         # Notify players of the newly established trump suit
-#         notify_players(f"The trump suit has been set to {game.trump_suit} based on the first card played.")
-
-#     # Remove the card from the player's hand
-#     player_hands[player].remove(card)
 
 def update_remaining_cards_frontend():
     """
@@ -526,6 +382,7 @@ def update_remaining_cards_frontend():
 
     except Exception as e:
         print(f"Error updating remaining cards frontend: {str(e)}")
+
 
 
 def start_euchre_round(game):
@@ -598,131 +455,3 @@ def start_euchre_round(game):
             "winning_team": "Team 1" if game.team1_points >= 10 else "Team 2" if game.team2_points >= 10 else None,
         }
     })
-
-
-
-
-
-
-# def start_euchre_round(game):
-#     """
-#     Start a Euchre round using the players' existing hands.
-#     """
-
-#     # Retrieve all players
-#     player_objects = Player.objects.all()
-#     player_list = list(player_objects)  # Convert to list for proper filtering
-
-#     # Initialize player hands from PlayedCard
-#     player_hands = {player: [] for player in player_objects}
-
-#     # Debug: Print current hand sizes before fetching cards
-#     for player, cards in player_hands.items():
-#         print(f"{player.name} has {len(cards)} cards BEFORE retrieval.")
-
-#     # Fetch latest hand from the game
-#     latest_hand = Hand.objects.filter(game=game).order_by('-id').first()
-
-#     if not latest_hand:
-#         print("Error: No hand found for the current game!")
-#         return  # Prevents continuing with a broken state
-
-#     print(f"Using Hand ID: {latest_hand.id} for retrieving cards.")
-
-#     # Fetch PlayedCards only for this hand and these players
-#     unplayed_cards = PlayedCard.objects.filter(hand=latest_hand, player__in=player_list)
-
-#     if unplayed_cards.count() == 0:
-#         print("UnplayedCards is empty! Investigating...")
-#         print(f"Total PlayedCard objects in DB: {PlayedCard.objects.count()}")
-#         print(f"Total PlayedCard objects for this hand: {PlayedCard.objects.filter(hand=latest_hand).count()}")
-#         print(f"Expected hand ID: {latest_hand.id}")
-
-#     # Assign cards to player_hands
-#     for played_card in unplayed_cards:
-#         player_hands[played_card.player].append(played_card.card)
-
-#     # Debugging: Check card assignments
-#     for player, cards in player_hands.items():
-#         print(f"{player.name} has {len(cards)} cards AFTER retrieval.")
-
-#     # Ensure all players have 5 cards before starting the round
-#     for player in player_objects:
-#         player_cards = player_hands[player]
-#         if len(player_cards) < 5:
-#             raise ValueError(f"{player.name} has {len(player_cards)} cards instead of 5!")
-
-#     # # Play hands
-#     # for _ in range(5):  # Assuming 5 hands in the game
-#     #     hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit)
-
-#     #     for player in player_objects:
-#     #             if player.is_human:
-#     #                 # Human player logic (UI interaction needed here)
-#     #                 continue
-#     #             else:
-#     #             if not player_hands[player]:
-#     #                 raise ValueError(f"{player.name} has no cards to play.")
-
-#     #             # Bot logic to play the best card
-#     #             card_to_play = determine_best_card(player_hands[player], hand.trump_suit, hand.played_cards.all())
-
-#     #             # Check if card_to_play is valid
-#     #             if card_to_play is None:
-#     #                 raise ValueError(f"{player.name} has no valid card to play.")
-
-#     #             # Log the card being played (optional)
-#     #             print(f"{player.name} is playing {card_to_play.rank} of {card_to_play.suit}.")
-
-#     #             # Play the card
-#     #             play_card(player, hand, card_to_play, player_hands, game)
-
-#     #     # Determine winner of the trick
-#     #     hand.winner = evaluate_trick_winner(hand.trump_suit, hand.played_cards.all())
-#     #     hand.save()
-    
-#      # Play hands (Player included)
-#     for _ in range(5):  # Assuming 5 hands in the game
-#         hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit)
-
-#         for player in player_objects:
-#             if not player_hands[player]:
-#                 raise ValueError(f"{player.name} has no cards to play.")
-
-#             # **Player now plays automatically like a bot**
-#             card_to_play = determine_best_card(player_hands[player], hand.trump_suit, hand.played_cards.all())
-
-#             if card_to_play is None:
-#                 raise ValueError(f"{player.name} has no valid card to play.")
-
-#             print(f"{player.name} is playing {card_to_play.rank} of {card_to_play.suit}.")
-
-#             # Play the card (automatically for Player and AI)
-#             play_card(player, hand, card_to_play, player_hands, game)
-
-#         # Determine winner of the trick
-#         hand.winner = evaluate_trick_winner(hand.trump_suit, hand.played_cards.all())
-#         hand.save()
-
-
-#     # Finalize results for this round
-#     update_game_results(game)
-
-#     # Now delete played cards (moved to end, after game logic runs)
-#     PlayedCard.objects.filter(hand__game=game).delete()
-
-    # If no team has reached 10 points, start another trump selection process
-    # if game.team1_points < 10 and game.team2_points < 10:
-    #     # Fetch round results
-    #     results = {
-    #         "team1_points": game.team1_points,
-    #         "team2_points": game.team2_points,
-    #         "winning_team": "Team 1" if game.team1_points >= 10 else "Team 2" if game.team2_points >= 10 else None,
-    #     }
-    #     # Return results for end of round dialog
-    #     return JsonResponse({
-    #         "message": "Round completed.",
-    #         "round_results": results
-    #     })
-    # else:
-    #     print(f"Game over! Winner: {'Team 1' if game.team1_points >= 10 else 'Team 2'}")
