@@ -18,6 +18,33 @@ $(document).ready(function () {
         "Opponent2": "#bot3-card",
     };
 
+    function getCardImage(card) {
+        if (card === "Hidden") {
+            return "/static/images/cards/back.png"; // Back of the card
+        }
+        let cardParts = card.split(" of "); // Extract rank and suit
+        let rank = cardParts[0];
+        let suit = cardParts[1];
+        return `/static/images/cards/${rank}_of_${suit}.png`;
+    }
+    
+    function displayDealtCards(response) {
+        for (let player in response.hands) {
+            const cardContainer = $(positions[player]);
+            cardContainer.empty(); // Clear previous cards
+    
+            response.hands[player].forEach((card, index) => {
+                let imgSrc = player === "Player" ? getCardImage(card) : getCardImage("Hidden");
+                cardContainer.append(`<img src="${imgSrc}" class="playing-card" data-card="${card}" data-player="${player}">`);
+            });
+        }
+    }
+
+    function revealPlayedCard(player, card) {
+        let imgSrc = getCardImage(card);
+        $(positions[player]).find(`[data-card='${card}']`).attr("src", imgSrc);
+    }
+
     // Function to display the trump card modal
     function showTrumpCardDialog(card, player) {
         $("#start-game-button").hide();
@@ -268,12 +295,12 @@ $(document).ready(function () {
         });
     });
 
-    function displayDealtCards(response) {
-        for (let player in response.hands) {
-            const cards = response.hands[player].join(", ");
-            $(positions[player]).text(cards);
-        }
-    }
+    // function displayDealtCards(response) {
+    //     for (let player in response.hands) {
+    //         const cards = response.hands[player].join(", ");
+    //         $(positions[player]).text(cards);
+    //     }
+    // }
 
     function initializeDealerModal(response) {
         dealer = response.dealer;

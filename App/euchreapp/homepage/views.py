@@ -413,7 +413,7 @@ def reset_game(request):
             Hand.objects.all().delete()        
 
             # Reset ongoing games (instead of deleting, clear fields)
-            Game.objects.all().update(dealer=None, trump_suit=None, team1_points=0, team2_points=0)  
+            Game.objects.all().update(dealer=None, trump_suit="", team1_points=0, team2_points=0)
 
             # 🔥 Ensure the deck is fully recreated
             Card.objects.all().delete()  # Ensure no duplicate cards remain

@@ -21,7 +21,11 @@ class Game(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     dealer = models.ForeignKey(Player, on_delete=models.SET_NULL, null=True, related_name='games_as_dealer')
-    trump_suit = models.CharField(max_length=10, choices=[('hearts', 'Hearts'), ('diamonds', 'Diamonds'), ('clubs', 'Clubs'), ('spades', 'Spades')])
+    trump_suit = models.CharField(
+        max_length=10,
+        choices=[('hearts', 'Hearts'), ('diamonds', 'Diamonds'), ('clubs', 'Clubs'), ('spades', 'Spades')],
+        null=True, blank=True  # ✅ Allows null values when resetting
+    )
     team1_points = models.IntegerField(default=0)  # Points for Human + Bot2
     team2_points = models.IntegerField(default=0)  # Points for Bot1 + Bot3
 
@@ -32,7 +36,11 @@ class Game(models.Model):
 class Hand(models.Model):
     game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='hands')
     dealer = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='dealt_hands')
-    trump_suit = models.CharField(max_length=10, choices=[('hearts', 'Hearts'), ('diamonds', 'Diamonds'), ('clubs', 'Clubs'), ('spades', 'Spades')])
+    trump_suit = models.CharField(
+        max_length=10,
+        choices=[('hearts', 'Hearts'), ('diamonds', 'Diamonds'), ('clubs', 'Clubs'), ('spades', 'Spades')],
+        null=True, blank=True  # ✅ Allow null values when resetting the game
+    )
     winner = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='won_hands', null=True, blank=True)
 
     def __str__(self):
@@ -128,7 +136,7 @@ def deal_hand(deck, players, game):
             return JsonResponse({"error": "Not enough unique cards left in deck!"}, status=500)
 
         # **Step 2: Create a new hand**
-        hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit)
+        hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit or None)
 
         # **Step 3: Assign Cards**
         hands = {player: [] for player in players}
@@ -415,7 +423,7 @@ def start_euchre_round(game):
     # Play all 5 tricks in a loop
     for trick_number in range(5):
         trick_cards = []  # Cards played in this trick
-        hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit)
+        hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit or None)
 
         # Players play in order
         for player in players:
