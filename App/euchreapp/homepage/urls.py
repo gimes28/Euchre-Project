@@ -14,4 +14,5 @@ urlpatterns = [
     path('get-game-score/', views.get_game_score, name='get_game_score'),  # Update game score at end of round
     path('get-remaining-cards/', views.get_remaining_cards, name='get_remaining_cards'),
     path('play-next-trick/', views.play_next_trick, name='play_next_trick'),
+    path('determine-trump/', views.determine_bot_trump_decision, name='determine_trump'),
 ]

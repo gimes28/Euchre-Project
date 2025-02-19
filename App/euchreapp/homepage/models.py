@@ -55,6 +55,10 @@ class Card(models.Model):
     def __str__(self):
         return f"{self.rank} of {self.suit}" + (" (Trump)" if self.is_trump else "")
 
+    @property
+    def suit_name(self):
+        return dict(self.SUITS)[self.suit]
+
 
 class PlayedCard(models.Model):
     hand = models.ForeignKey(Hand, on_delete=models.CASCADE, related_name='played_cards', null=True)

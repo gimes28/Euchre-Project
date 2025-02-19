@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from random import shuffle
 from .models import start_euchre_round, Game, Player, Card, deal_hand as model_deal_hand, PlayedCard, reset_round_state, Hand, GameResult
+from .bot_logic import BotLogic
 
 # Render the homepage
 def home(request):
@@ -493,4 +494,47 @@ def play_next_trick(request):
 
     return JsonResponse({'error': 'Invalid request method'}, status=400)
 
+@csrf_exempt
+def determine_bot_trump_decision(request):
+    if request.method == "POST":
+        try:
+            # Fetch the latest game
+            game = Game.objects.latest('id')
 
+            # Fetch the player
+            bot_name = request.POST.get("player")
+
+            try:
+                bot = Player.objects.get(name=bot_name)
+            except Player.DoesNotExist:
+                return JsonResponse({"error": f"Player '{bot_name}' does not exist."}, status=400)
+
+            # Fetch the latest hand
+            latest_hand = Hand.objects.filter(game=game).order_by('-id').first()
+
+            # Fetch the dealer
+            dealer = game.dealer
+
+            # Fetch the upcard
+            up_card = request.POST.get("up_card")
+
+            # Fetch the player order
+            player_order = request.POST.get("player_order")
+            
+            # Get player's current hand
+            bot_hand = PlayedCard.objects.filter(player=bot, hand=latest_hand)
+
+            print(f"Bot {bot} hand {bot_hand}")
+            print(f"Player order: {player_order}")
+            print(f"Up card: {up_card}")
+
+            # Determine the trump decision
+            bot_logic = BotLogic()
+            trump_decision = bot_logic.determine_trump(bot_hand, dealer, up_card, 1, player_order)
+
+            print(f"Bot {bot} decision: {trump_decision}")
+
+            return JsonResponse({"decision": trump_decision})
+
+        except Exception as e:
+            return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)
