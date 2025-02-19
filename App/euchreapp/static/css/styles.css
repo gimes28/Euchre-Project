@@ -153,6 +153,41 @@
     background-color: transparent; /* Transparent background */
 }
 
+/* Left side: Rotate cards 90 degrees to the right & align top to bottom */
+.rectangle.left {
+    display: flex;
+    flex-direction: column; /* Stacks cards vertically */
+    justify-content: center; /* Aligns cards at the top */
+    align-items: center; /* Centers cards horizontally */
+    overflow-y: auto; /* Allows vertical scrolling if too many cards */
+    overflow-x: hidden; /* Prevents horizontal scrolling */
+    height: 100%; /* Ensures it uses the full height */
+    padding: 0; /* Remove extra padding */
+}
+
+.rectangle.left img {
+    transform: rotate(90deg); /* Rotates cards 90° right */
+    margin: -10px 0; /* Overlaps the cards to remove spacing */
+}
+
+/* Right side: Rotate cards 90 degrees to the left & align top to bottom */
+.rectangle.right {
+    display: flex;
+    flex-direction: column; /* Stacks cards vertically */
+    justify-content: center; /* Aligns cards at the top */
+    align-items: center; /* Centers cards horizontally */
+    overflow-y: auto; /* Allows vertical scrolling */
+    overflow-x: hidden; /* Prevents horizontal scrolling */
+    height: 100%; /* Ensures it uses the full height */
+    padding: 0; /* Remove extra padding */
+}
+
+.rectangle.right img {
+    transform: rotate(-90deg); /* Rotates cards 90° left */
+    margin: -10px 0; /* Overlaps the cards to remove spacing */
+}
+
+
 .center-top-text,
 .center-bottom-text {
     position: absolute;
@@ -271,12 +306,20 @@
 }
 
 #previous-tricks-container {
-    max-height: 200px;
-    overflow-y: auto;
-    margin-top: 10px;
+    max-height: 330px; /* ✅ Updated to 330px */
+    overflow-y: auto;  /* Enables vertical scrolling if content overflows */
+    margin-top: 10px;  
 }
 
 #previous-tricks-body tr td {
     text-align: center;
     padding: 5px;
+}
+
+.playing-card {
+    width: 80px;  /* Adjust based on card size */
+    height: 111px;
+    margin: 5px;
+    border-radius: 8px;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
 }

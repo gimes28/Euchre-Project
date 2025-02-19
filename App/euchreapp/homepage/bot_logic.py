@@ -38,13 +38,20 @@ class BotLogic:
             left_bower_suit = "clubs" if trump_suit == "spades" else \
                             "spades" if trump_suit == "clubs" else \
                             "diamonds" if trump_suit == "hearts" else "hearts"
+            print("left_bower_suit: ", left_bower_suit)
             trump_cards = [playedCard for playedCard in hand if (playedCard.card.suit == trump_suit) or (playedCard.card.rank == "J" and playedCard.card.suit == left_bower_suit)]
             num_trump_cards = len(trump_cards)
 
-            num_aces = len([playedCard for playedCard in hand if playedCard.card.rank == "A"])
+            print("trump_cards: ", trump_cards)
+            print("num_trump_cards: ", num_trump_cards)
+
+            num_aces = len([playedCard for playedCard in hand if (playedCard.card.rank == "A" and playedCard.card.suit != trump_suit)])
+
+            print("num_aces: ", num_aces)
             
             if num_trump_cards + num_aces >= 4:
                 # ORDER UP (4 trumps is automatic order up and aces are almost as valuable as trumps)
+                print("ORDER UP - 4 trumps or 3 trumps and an ace")
                 return trump_suit
 
             # Count number of suits
@@ -56,6 +63,7 @@ class BotLogic:
 
             if (num_trump_cards >= 3 and num_suits <= 2):
                 # ORDER UP (3 trump 2 suited is automatic order up)
+                print("ORDER UP - 3 trumps and 2 suited")
                 return trump_suit
 
         return 'pass' # Hand not strong enough to call trump
