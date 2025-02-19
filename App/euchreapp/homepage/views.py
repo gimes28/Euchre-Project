@@ -440,6 +440,7 @@ def start_round(request):
     if request.method == "POST":
         try:
             game = Game.objects.latest('id')
+            trump_caller = request.POST.get("trump_caller")
 
             # Ensure a previous hand exists in the game
             if not game.hands.exists():
@@ -475,7 +476,7 @@ def start_round(request):
                     return JsonResponse({"error": f"{player.name} has {len(player_cards)} cards instead of 5!"}, status=500)
 
             # Step 5: Play the entire round (all 5 tricks)
-            round_result = start_euchre_round(game)  # Plays **all 5 tricks**
+            round_result = start_euchre_round(game, trump_caller)  # Plays **all 5 tricks**
             
             return round_result  # Returns JSON with full round data
 

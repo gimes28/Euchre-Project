@@ -270,14 +270,29 @@ def evaluate_trick_winner(trump_suit, played_cards):
 
 
 
-def update_game_results(game, team1_tricks, team2_tricks):
+def update_game_results(game, team1_tricks, team2_tricks, trump_caller):
     """
     Updates game results after each round based on tricks won.
     """
+    if trump_caller in ["Player", "Team Mate"]:
+        trump_calling_team = 1
+    else:
+        trump_calling_team = 2
+
     if team1_tricks >= 3:
-        game.team1_points += 1 if team1_tricks < 5 else 2  # ✅ CORRECTED to game.team1_points
+        if trump_calling_team == 1:
+            # Team 1 called trump and won
+            game.team1_points += 1 if team1_tricks < 5 else 2
+        else:
+            # Team 1 euchred the other team
+            game.team1_points += 2
     if team2_tricks >= 3:
-        game.team2_points += 1 if team2_tricks < 5 else 2  # ✅ CORRECTED to game.team2_points
+        if trump_calling_team == 2:
+            # Team 2 called trump and won
+            game.team2_points += 1 if team2_tricks < 5 else 2
+        else:
+            # Team 2 euchred the other team
+            game.team2_points += 2
 
     game.save()
 
@@ -393,7 +408,7 @@ def update_remaining_cards_frontend():
 
 
 
-def start_euchre_round(game):
+def start_euchre_round(game, trump_caller):
     """
     Plays all 5 tricks in one request and returns the final round results.
     """
@@ -451,7 +466,7 @@ def start_euchre_round(game):
         })
 
     # Update the game results after all tricks
-    update_game_results(game, team1_tricks, team2_tricks)
+    update_game_results(game, team1_tricks, team2_tricks, trump_caller)
 
     # Return the final round results
     return JsonResponse({
