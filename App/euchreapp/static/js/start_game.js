@@ -138,7 +138,8 @@ $(document).ready(function () {
     
                 // Hide trump modal and show round start confirmation
                 $("#modal-trump").fadeOut();
-                showRoundStart(`${player} accepted trump! The trump suit is now ${currentSuit}.`);
+                message = `${player} accepted trump! The trump suit is now ${currentSuit}.`
+                showRoundStart(message, player);
             },
             error: function (xhr) {
                 alert("Error accepting trump: " + xhr.responseText);
@@ -232,7 +233,7 @@ $(document).ready(function () {
     }
 
     // Function to display the round status
-    function showRoundStart(message) {
+    function showRoundStart(message, trumpCaller) {
         $("#modal-trump").fadeOut(); // Hide trump modal if still visible
     
         $("#modal-round .modal-content").html(`
@@ -246,6 +247,11 @@ $(document).ready(function () {
         $("#ok-modal-button").hide();
         $("#modal-round-button").show();
         $("#ok-trump-button").hide();
+
+        $("#modal-round-button").off("click").on("click", function () {
+            $("#modal-round").fadeOut();
+            startRound(trumpCaller);
+        });
 
         $("#modal-round").fadeIn(); // Ensure round modal is displayed
     }
@@ -497,13 +503,11 @@ $(document).ready(function () {
     
 
     // Handle starting the round
-    $("#modal-round-button").click(function (event) {
-        event.preventDefault();
-        $("#modal-round").fadeOut();
-    
+    function startRound(trumpCaller) {
         $.ajax({
             url: "/start-round/",
             type: "POST",
+            data: { trump_caller: trumpCaller },
             success: function (response) {
                 console.log("Round Results Received:", response);
     
@@ -526,8 +530,7 @@ $(document).ready(function () {
                 alert("Error starting round: " + xhr.responseText);
             }
         });
-    });
-    
+    }
     
     
 
