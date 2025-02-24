@@ -63,6 +63,7 @@
                         <div class="center-bottom-text">Player</div>
                         <div class="center-right-text">Opponent 2</div>
 
+                        
                         <!-- Custom Modal inside center rectangle -->
                         <div id="modal-dealer" class="custom-modal">
                             <div class="modal-header">Dealer for This Round</div>
@@ -107,52 +108,76 @@
 
                     </div>
                     <div class="rectangle right" id="bot3-card"></div>
-                    <div class="rectangle bottom" id="human-card">
-                        {% comment %} <span>Your Cards:</span>
-                        <div id="player-hand" class="card-container"></div> {% endcomment %}
+                    <div class="rectangle bottom" id="human-card"></div>
+                </div>
+            </div>
+            <!-- Right Column: Previous Tricks & Remaining Cards -->
+            <div class="right-column">
+                <div class="right-div">
+                    <strong>Tricks this Round</strong>         
+                    <div id="previous-tricks-container" style="padding-top: 10px;">
+                        <!-- Table for Player & Teammate -->
+                        <div class="trick-table">
+                            <p>Player's Team</p>
+                            <table class="ui celled table">
+                                <thead>
+                                    <tr>
+                                        <th>Trick #</th>
+                                        <th>Player</th>
+                                        <th>Card</th>
+                                        <th>Teammate</th>
+                                        <th>Card</th>
+                                        <th>Winner</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="player-teammate-tricks">
+                                    <tr><td colspan="6" style="text-align:center;">No tricks played yet.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Table for Opponent 1 & Opponent 2 -->
+                        <div class="trick-table">
+                            <p>Opponent's Team</p>
+                            <table class="ui celled table">
+                                <thead>
+                                    <tr>
+                                        <th>Trick #</th>
+                                        <th>Opponent 1</th>
+                                        <th>Card</th>
+                                        <th>Opponent 2</th>
+                                        <th>Card</th>
+                                        <th>Winner</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="opponent-tricks">
+                                    <tr><td colspan="6" style="text-align:center;">No tricks played yet.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+        
+                <div class="bottom-right">
+                    <strong>Remaining Cards</strong>
+                    <div id="remaining-cards-list"></div>
+                </div>
+            </div>
+        
+            <!-- Bottom Section: Game Score & Trump -->
+            <div class="bottom-div">
+                <div class="bottom-left">
+                    <div class="bottom-left-column-1">
+                        <strong>Current Trump</strong>
+                    </div>
+                    <div class="bottom-left-column-2">
+                        <strong>Game Score</strong>
                     </div>
                 </div>
             </div>
-            <!-- Cards Played Top Right -->
-            <div class="right-div" style="font-weight: bold;">Previous Tricks
-                <div id="previous-tricks-container">
-                    <table class="ui celled table">
-                        <thead>
-                            <tr>
-                                <th>Trick #</th>
-                                <th>Player 1</th>
-                                <th>Card 1</th>
-                                <th>Player 2</th>
-                                <th>Card 2</th>
-                                <th>Player 3</th>
-                                <th>Card 3</th>
-                                <th>Player 4</th>
-                                <th>Card 4</th>
-                                <th>Winner</th>
-                            </tr>
-                        </thead>
-                        <tbody id="previous-tricks-body">
-                            <tr><td colspan="10" style="text-align:center;">No tricks played yet.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-                
-            </div>
-            <!-- Bottom Row -->
-            <div class="bottom-div">
-                <!-- Bottom Row Left Half: Two Columns -->
-                <div class="bottom-left">
-                    <div class="bottom-left-column-1" style="font-weight: bold;">Current Trump</div>
-                    <div class="bottom-left-column-2" style="font-weight: bold;">Game Score</div>
-                </div>
-                <!-- Bottom Row Right Half: One Column -->
-                <div class="bottom-right" style="font-weight: bold;">
-                    Remaining Cards
-                    <div id="remaining-cards-list"></div>
-                </div>                
-            </div>
         </div>
-    </div>
+        
     <!-- Startgame AJAX promise -->
     <script src="{% static 'js/start_game.js' %}"></script>
 </body>

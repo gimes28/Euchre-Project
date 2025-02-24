@@ -7,7 +7,7 @@ $(document).ready(function () {
 
     // Reset Current Trump and Game Score on Page Load
     $("#current-trump").text("None");
-    $("#game-score").text("Team 1: 0 | Team 2: 0");
+    $("#game-score").text("Player Team: 0 | Opponent Team: 0");
 
 
     // Map cards to their positions
@@ -426,7 +426,7 @@ $(document).ready(function () {
     function showRoundResults(results) {
         let winningMessage = results.winning_team
             ? `<p><strong>${results.winning_team} won the game!</strong></p>`
-            : `<p>Current Score - Team 1: ${results.team1_points} | Team 2: ${results.team2_points}</p>`;
+            : `<p>Current Score - Player Team: ${results.team1_points} | Opponent Team: ${results.team2_points}</p>`;
 
         // Update game score display
         updateGameScore(results.team1_points, results.team2_points);
@@ -554,7 +554,7 @@ $(document).ready(function () {
                 console.log(response.message);
                 // Reset Current Trump and Game Score on Page Load
                 $("#current-trump").text("None");
-                $("#game-score").text("Team 1: 0 | Team 2: 0");
+                $("#game-score").text("Player Team: 0 | Opponent Team: 0");
     
                 // Close all modals and reset the UI
                 $(".custom-modal").fadeOut();
@@ -579,8 +579,8 @@ $(document).ready(function () {
     function updateGameScore(team1, team2) {
         $(".bottom-left-column-2").html(`
             <span>Game Score</span>
-            <p>Team 1: ${team1} points</p>
-            <p>Team 2: ${team2} points</p>
+            <p style="padding-top: 30px; font-size: large;">Player Team: ${team1} points</p>
+            <p style="padding-top: 10px; font-size: large;">Opponent Team: ${team2} points</p>
         `);
     }
 
@@ -657,27 +657,62 @@ $(document).ready(function () {
     
 
     function updatePreviousTricks(tricks) {
-        let tricksTable = $("#previous-tricks-body");
-        tricksTable.empty();  // Clear previous entries
+        let playerTeammateBody = document.getElementById("player-teammate-tricks");
+        let opponentBody = document.getElementById("opponent-tricks");
     
-        tricks.forEach(trickData => {
-            let newRow = `
+        // Clear previous data
+        playerTeammateBody.innerHTML = "";
+        opponentBody.innerHTML = "";
+    
+        if (tricks.length === 0) {
+            playerTeammateBody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No tricks played yet.</td></tr>`;
+            opponentBody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No tricks played yet.</td></tr>`;
+            return;
+        }
+    
+        tricks.forEach((trick) => {
+            // Extract players and cards
+            let player = trick.players[0]; // Player
+            let opponent1 = trick.players[1]; // Opponent 1
+            let teammate = trick.players[2]; // Teammate
+            let opponent2 = trick.players[3]; // Opponent 2
+    
+            let playerCard = trick.cards[0]; // Player's card
+            let opponent1Card = trick.cards[1]; // Opponent 1's card
+            let teammateCard = trick.cards[2]; // Teammate's card
+            let opponent2Card = trick.cards[3]; // Opponent 2's card
+            let winner = trick.winner; // Trick Winner
+    
+            // Determine class for the winner cell
+            let playerTeamWinClass = (winner === player || winner === teammate) ? "winner-green" : "";
+            let opponentTeamWinClass = (winner === opponent1 || winner === opponent2) ? "winner-red" : "";
+    
+            // Create rows for each table
+            let playerRow = `
                 <tr>
-                    <td>${trickData.trick_number}</td>
-                    <td>${trickData.players[0]}</td>
-                    <td>${trickData.cards[0]}</td>
-                    <td>${trickData.players[1]}</td>
-                    <td>${trickData.cards[1]}</td>
-                    <td>${trickData.players[2]}</td>
-                    <td>${trickData.cards[2]}</td>
-                    <td>${trickData.players[3]}</td>
-                    <td>${trickData.cards[3]}</td>
-                    <td>${trickData.winner}</td>
+                    <td>${trick.trick_number}</td>
+                    <td>${player}</td>
+                    <td>${playerCard}</td>
+                    <td>${teammate}</td>
+                    <td>${teammateCard}</td>
+                    <td class="${playerTeamWinClass}">${winner}</td>
                 </tr>
             `;
-            tricksTable.append(newRow);
+            playerTeammateBody.innerHTML += playerRow;
+    
+            let opponentRow = `
+                <tr>
+                    <td>${trick.trick_number}</td>
+                    <td>${opponent1}</td>
+                    <td>${opponent1Card}</td>
+                    <td>${opponent2}</td>
+                    <td>${opponent2Card}</td>
+                    <td class="${opponentTeamWinClass}">${winner}</td>
+                </tr>
+            `;
+            opponentBody.innerHTML += opponentRow;
         });
-    }
+    }    
     
     
     function finalizeRound(response) {
