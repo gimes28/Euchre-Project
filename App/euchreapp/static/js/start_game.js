@@ -40,6 +40,18 @@ $(document).ready(function () {
         }
     }
 
+    function displayHighCards(response) {
+        // Display the dealt high cards
+        for (let player in response.dealt_cards) {
+            const cardContainer = $(positions[player]);
+            cardContainer.empty(); // Clear previous cards
+            let highcard = response.dealt_cards[player];
+            //console.log(highcard)
+            let imgSrc = getCardImage(highcard);
+            cardContainer.append(`<img src="${imgSrc}" class="playing-card" data-card="${highcard}" data-player="${player}">`);
+        }
+    }
+
     function revealPlayedCard(player, card) {
         let imgSrc = getCardImage(card);
         $(positions[player]).find(`[data-card='${card}']`).attr("src", imgSrc);
@@ -48,6 +60,7 @@ $(document).ready(function () {
     // Function to display the trump card modal
     function showTrumpCardDialog(card, player) {
         $("#start-game-button").hide();
+        $("#start-game-form").hide();
         $("#ok-round-button").hide();
         $("#modal-round").fadeOut();
         $("#modal-dealer").fadeOut();
@@ -134,7 +147,6 @@ $(document).ready(function () {
     
                 // Update UI with the new trump suit
                 updateTrumpDisplay(response.trump_suit);
-                // displayHumanHand(response.updated_hand);
     
                 // Hide trump modal and show round start confirmation
                 $("#modal-trump").fadeOut();
@@ -146,6 +158,42 @@ $(document).ready(function () {
             }
         });
     }
+
+    // Handle accepting the trump card
+    $("#accept-trump-button").click(function () {
+        resetPlayerHandBeforeTrump(); // Ensure UI is clear before updating
+        
+        const currentPlayer = playerOrder[currentPlayerIndex];
+
+        $.ajax({
+            url: "/accept-trump/",
+            type: "POST",
+            data: { player: currentPlayer, card: gameResponse.remaining_cards[0] },
+            success: function (response) {
+                trumpSelected = true;
+                currentSuit = response.trump_suit;
+
+                // Update the trump suit display
+                updateTrumpDisplay(response.trump_suit);
+
+                // Update the player's hand in their rectangle
+                for (let card in response.updated_hand) {
+                    const cardContainer = $(positions[currentPlayer]);
+                    cardContainer.empty(); // Clear previous cards
+                    let newCard = response.updated_hand[card];
+                    console.log(newCard);
+                    let imgSrc = getCardImage(newCard);
+                    cardContainer.append(`<img src="${imgSrc}" class="playing-card" data-card="${newCard}" data-player="${player}">`);
+                }
+
+                // Show the final message
+                showFinalMessage(`${currentPlayer} accepted the trump card!`);
+            },
+            error: function (xhr) {
+                alert("An error occurred while accepting the trump card: " + xhr.responseText);
+            }
+        });
+    });
     
     function rejectTrump(player, trumpRound) {
         currentPlayerIndex++;
@@ -220,38 +268,25 @@ $(document).ready(function () {
             type: "POST",
             success: function (response) {
 
-                // Deal hands AFTER the game has started
-                $.ajax({
-                    url: "/deal-hand/",
-                    type: "POST",
-                    success: function (response) {
-                        if (response.hands && response.hands["Player"]) {
-                            // displayHumanHand(response.hands["Player"]);
-                        }
-                    }
-                });
-
                 // Fetch and update the game score AFTER starting the game
                 $.ajax({
                     url: "/get-game-score/",
                     type: "GET",
-                    success: function(response) {
-                        updateGameScore(response.team1, response.team2);
+                    success: function(response2) {
+                        updateGameScore(response2.team1, response2.team2);
                     },
                     error: function(xhr) {
                         console.error("Error fetching game score:", xhr.responseText);
                     }
                 });
 
-                // Display the dealt cards
-                for (let player in response.dealt_cards) {
-                    $(positions[player]).text(response.dealt_cards[player]);
-                }
+                // Update UI with high card to determine dealer
+                displayHighCards(response);
 
                 // Highlight the dealer
                 $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
                 const dealerPosition = positions[response.dealer];
-                $(dealerPosition).addClass("dealer-highlight");
+                $(dealerPosition).addClass("dealer-highlight").find(".dealer-icon").add();
                 $(dealerPosition).prepend(`
                     <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
                 `);
@@ -281,12 +316,16 @@ $(document).ready(function () {
                 playerOrder = response.player_order; // Update player order
                 currentPlayerIndex = 0;
                 for (let player in response.hands) {
-                    const cards = response.hands[player].join(", ");
-                    $(positions[player]).text(cards);
+                    // Update UI with new hands
+                    displayDealtCards(response);
 
                     // Highlight the dealer
                     if (player === dealer) {
-                        $(positions[player]).prepend(`
+                        // Highlight the dealer
+                        $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
+                        const dealerPosition = positions[response.dealer];
+                        $(dealerPosition).addClass("dealer-highlight").find(".dealer-icon").add();
+                        $(dealerPosition).prepend(`
                             <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
                         `);
                     }
@@ -300,13 +339,6 @@ $(document).ready(function () {
             }
         });
     });
-
-    // function displayDealtCards(response) {
-    //     for (let player in response.hands) {
-    //         const cards = response.hands[player].join(", ");
-    //         $(positions[player]).text(cards);
-    //     }
-    // }
 
     function initializeDealerModal(response) {
         dealer = response.dealer;
@@ -332,35 +364,6 @@ $(document).ready(function () {
     function resetPlayerHandBeforeTrump() {
         $("#player-hand").empty(); // Clear displayed cards to prevent double-counting
     }
-
-    // Handle accepting the trump card
-    $("#accept-trump-button").click(function () {
-        resetPlayerHandBeforeTrump(); // Ensure UI is clear before updating
-        
-        const currentPlayer = playerOrder[currentPlayerIndex];
-
-        $.ajax({
-            url: "/accept-trump/",
-            type: "POST",
-            data: { player: currentPlayer, card: gameResponse.remaining_cards[0] },
-            success: function (response) {
-                trumpSelected = true;
-                currentSuit = response.trump_suit;
-
-                // Update the trump suit display
-                updateTrumpDisplay(response.trump_suit);
-
-                // Update the player's hand in their rectangle
-                // displayHumanHand(response.updated_hand);
-
-                // Show the final message
-                showFinalMessage(`${currentPlayer} accepted the trump card!`);
-            },
-            error: function (xhr) {
-                alert("An error occurred while accepting the trump card: " + xhr.responseText);
-            }
-        });
-    });
 
     function updateTrumpDisplay(suit) {
         const suitImageMap = {
@@ -495,8 +498,8 @@ $(document).ready(function () {
                 $.ajax({
                     url: "/get-game-score/",
                     type: "GET",
-                    success: function(response) {
-                        updateGameScore(response.team1, response.team2);
+                    success: function(response2) {
+                        updateGameScore(response2.team1, response2.team2);
                     },
                     error: function(xhr) {
                         console.error("Error fetching game score:", xhr.responseText);
@@ -556,10 +559,12 @@ $(document).ready(function () {
                 // Close all modals and reset the UI
                 $(".custom-modal").fadeOut();
                 $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
+                $("#remaining-cards-list").html("<p></p>");
                 
                 // Show the Start Game button again
                 $("#end-game-button").hide();
                 $("#start-game-button").show();
+                $("#start-game-form").show();
             },
             error: function (xhr) {
                 alert("Error ending the game: " + xhr.responseText);

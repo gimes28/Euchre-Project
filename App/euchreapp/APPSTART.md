@@ -41,8 +41,3 @@ Step 3: Play each trick until you run out of cards then the next dealer is the p
 # Other Rules (may implement?)
 
 1. If you have a great hand, you can choose to play this trick alone (“go alone”), which exempts your partner from playing in that trick. “Going alone” can be a good strategy because it can get you extra points in that trick, which will help you win. If you are “Going alone” and don't get all of the tricks, your team will only receive 1 point.
-
-
-
-# Alternate rules
-https://www.youtube.com/watch?v=NJJxUYs6Tgk

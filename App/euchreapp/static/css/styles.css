@@ -24,7 +24,7 @@
     background-position: center; /* Centers the texture */
     border: 2px solid #333333; /* Dark grey border */
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4); /* Shadow */
-    padding: 20px;
+    padding: 5px;
     text-align: center;
 }
 
@@ -123,27 +123,31 @@
     padding: 10px;
     text-align: center;
     font-size: 1.2em;
-    font-weight: bold;
-}
-
-.rectangle.left {
-    grid-area: left;
-}
-
-.rectangle.top {
-    grid-area: top;
-}
-
-.rectangle.center {
-    grid-area: center;
+    font-weight: normal !important;
 }
 
 .rectangle.bottom {
     grid-area: bottom;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100%;
+    padding: 0;
 }
 
-.rectangle.right {
-    grid-area: right;
+.rectangle.top {
+    grid-area: top;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100%;
+    padding: 0;
 }
 
 .rectangle.center {
@@ -155,6 +159,7 @@
 
 /* Left side: Rotate cards 90 degrees to the right & align top to bottom */
 .rectangle.left {
+    grid-area: left;
     display: flex;
     flex-direction: column; /* Stacks cards vertically */
     justify-content: center; /* Aligns cards at the top */
@@ -172,6 +177,7 @@
 
 /* Right side: Rotate cards 90 degrees to the left & align top to bottom */
 .rectangle.right {
+    grid-area: right;
     display: flex;
     flex-direction: column; /* Stacks cards vertically */
     justify-content: center; /* Aligns cards at the top */
@@ -186,7 +192,6 @@
     transform: rotate(-90deg); /* Rotates cards 90° left */
     margin: -10px 0; /* Overlaps the cards to remove spacing */
 }
-
 
 .center-top-text,
 .center-bottom-text {
@@ -271,9 +276,10 @@
     margin-top: 20px;
 }
 
-/* Dealer Icon */
+/* Highlight dealer square and add icon */
 .dealer-highlight {
     position: relative;
+    border: 1.5px solid #db2828 !important;
 }
 
 .dealer-icon {
@@ -306,7 +312,8 @@
 }
 
 #previous-tricks-container {
-    max-height: 330px; /* ✅ Updated to 330px */
+    font-weight: normal; /* Make sure the table has regular font to make it easier to read */
+    max-height: 330px; /* Updated to 330px */
     overflow-y: auto;  /* Enables vertical scrolling if content overflows */
     margin-top: 10px;  
 }
@@ -317,8 +324,8 @@
 }
 
 .playing-card {
-    width: 80px;  /* Adjust based on card size */
-    height: 111px;
+    width: 72px;  /* Adjust based on card size */
+    height: 100px;
     margin: 5px;
     border-radius: 8px;
     box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
