@@ -585,16 +585,67 @@ $(document).ready(function () {
     }
 
     function updateRemainingCards() {
+        // Define the suits and ranks for Euchre
+        const redSuits = ["hearts", "diamonds"]; // First row
+        const blackSuits = ["clubs", "spades"]; // Second row
+        const suits = [...redSuits, ...blackSuits]; // Full order
+        const ranks = ["A", "K", "Q", "J", "10", "9"]; // Descending rank order
+    
+        // Generate the full deck of 24 cards
+        let fullDeck = [];
+        suits.forEach(suit => {
+            ranks.forEach(rank => {
+                fullDeck.push(`${rank} of ${suit}`);
+            });
+        });
+    
         $.ajax({
             url: "/get-remaining-cards/",
             type: "GET",
             success: function (response) {
                 if (response.remaining_cards) {
-                    $("#remaining-cards-list").html(
-                        response.remaining_cards.map(card => `<p>${card}</p>`).join("")
-                    );
+                    // Filter out used cards
+                    const usedCards = response.remaining_cards;
+                    let availableCards = fullDeck.filter(card => !usedCards.includes(card));
+    
+                    // Sort the available cards: Grouped by suit, descending by rank
+                    availableCards.sort((a, b) => {
+                        let [rankA, suitA] = a.split(" of ");
+                        let [rankB, suitB] = b.split(" of ");
+    
+                        let suitIndexA = suits.indexOf(suitA);
+                        let suitIndexB = suits.indexOf(suitB);
+    
+                        if (suitIndexA !== suitIndexB) {
+                            return suitIndexA - suitIndexB; // Sort by suit order
+                        }
+                        return ranks.indexOf(rankA) - ranks.indexOf(rankB); // Sort descending within suit
+                    });
+    
+                    // Group cards into two rows
+                    let redRowHTML = ""; // Hearts & Diamonds
+                    let blackRowHTML = ""; // Clubs & Spades
+    
+                    availableCards.forEach(card => {
+                        let suit = card.split(" of ")[1];
+                        let cardHTML = `<img src="${getCardImage(card)}" class="playing-card" data-card="${card}">`;
+                        
+                        if (redSuits.includes(suit)) {
+                            redRowHTML += cardHTML;
+                        } else if (blackSuits.includes(suit)) {
+                            blackRowHTML += cardHTML;
+                        }
+                    });
+    
+                    // Final HTML layout for two rows
+                    let remainingCardsHTML = `
+                        <div class="card-row">${redRowHTML}</div>
+                        <div class="card-row">${blackRowHTML}</div>
+                    `;
+    
+                    $("#remaining-cards-list").html(remainingCardsHTML);
                 } else {
-                    $("#remaining-cards-list").html("<p>No cards remaining.</p>");
+                    $("#remaining-cards-list").html("<p>Error loading remaining cards.</p>");
                 }
             },
             error: function (xhr) {
@@ -602,7 +653,8 @@ $(document).ready(function () {
                 $("#remaining-cards-list").html("<p>Error loading remaining cards.</p>");
             }
         });
-    }
+    }    
+    
 
     function updatePreviousTricks(tricks) {
         let tricksTable = $("#previous-tricks-body");
