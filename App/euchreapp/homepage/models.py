@@ -4,6 +4,7 @@ from random import shuffle
 from django.http import JsonResponse
 import time
 import traceback
+from .bot_logic import BotLogic
 
 
 # Create your models here.
@@ -15,6 +16,17 @@ class Player(models.Model):
 
     def __str__(self):
         return self.name
+
+    def determine_trump(self, game, up_card, player_order, trump_round):
+        if self.is_human:
+            return JsonResponse({"error": "A human player should not use this function"}, status=500)
+        
+        latest_hand = Hand.objects.filter(game=game).order_by('-id').first()
+        bot_hand = PlayedCard.objects.filter(player=self, hand=latest_hand)
+
+        bot_logic = BotLogic()
+
+        return bot_logic.determine_trump(self.name, bot_hand, game.dealer, up_card, player_order, trump_round)
 
 
 class Game(models.Model):

@@ -175,7 +175,11 @@ $(document).ready(function () {
             
             // Give trump dialog box, but this time player can select any suit except for the upCardSuit
             setTimeout(() => {
-                showTrumpCardDialog2ndRound(gameResponse.remaining_cards[0].split(" of ")[1], playerOrder[currentPlayerIndex].name);
+                if (playerOrder[currentPlayerIndex].is_human == true) {
+                    showTrumpCardDialog2ndRound(gameResponse.remaining_cards[0].split(" of ")[1], playerOrder[currentPlayerIndex].name);
+                } else {
+                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], trumpRound);
+                }
             }, 400);
         }
     }
@@ -188,7 +192,7 @@ $(document).ready(function () {
                 player: player,
                 dealer: dealer,
                 up_card: upCard,
-                trumpRound: trumpRound,
+                trump_round: trumpRound,
                 player_order: playerOrder
             },
             async: false,
@@ -572,6 +576,7 @@ $(document).ready(function () {
                     $(dealerPosition).prepend(`
                         <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
                     `);
+                    dealer = response.dealer;
                 } else {
                     console.error("Error: Dealer position not found in UI.");
                 }
