@@ -516,8 +516,11 @@ def get_remaining_cards(request):
         # Get all played cards in this round
         played_cards = PlayedCard.objects.filter(hand__game=game).values_list('card', flat=True)
 
-        # Get all cards that haven't been played
-        remaining_cards = Card.objects.exclude(id__in=played_cards)
+        # Get all cards that haven't been played, excluding the Player's hand
+        player = Player.objects.get(name="Player")  # Adjust if Player's name differs
+        player_hand = PlayedCard.objects.filter(player=player, hand=latest_hand).values_list('card', flat=True)
+
+        remaining_cards = Card.objects.exclude(id__in=played_cards).exclude(id__in=player_hand)
 
         remaining_cards_list = [f"{card.rank} of {card.suit}" for card in remaining_cards]
 
@@ -526,6 +529,7 @@ def get_remaining_cards(request):
     except Exception as e:
         print(f"Error in get_remaining_cards: {str(e)}")
         return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)
+
     
 @csrf_exempt
 def play_next_trick(request):

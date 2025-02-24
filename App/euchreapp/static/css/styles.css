@@ -219,10 +219,12 @@
 
 .center-top-text {
     top: 10px; /* Position near the top */
+    color: #C4B454;
 }
 
 .center-bottom-text {
     bottom: 10px; /* Position near the bottom */
+    color: #C4B454;
 }
 
 .center-left-text,
@@ -232,6 +234,7 @@
     text-align: center;
     font-size: 1.2rem;
     font-weight: bold;
+    color:#C4B454;
     writing-mode: vertical-rl; /* Ensures text flows vertically */
     text-orientation: mixed; /* Makes text orientation correct */
 }

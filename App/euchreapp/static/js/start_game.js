@@ -585,7 +585,6 @@ $(document).ready(function () {
     }
 
     function updateRemainingCards() {
-        // Define the suits and ranks for Euchre
         const redSuits = ["hearts", "diamonds"]; // First row
         const blackSuits = ["clubs", "spades"]; // Second row
         const suits = [...redSuits, ...blackSuits]; // Full order
@@ -606,7 +605,7 @@ $(document).ready(function () {
                 if (response.remaining_cards) {
                     // Filter out used cards
                     const usedCards = response.remaining_cards;
-                    let availableCards = fullDeck.filter(card => !usedCards.includes(card));
+                    let availableCards = fullDeck.filter(card => usedCards.includes(card));
     
                     // Sort the available cards: Grouped by suit, descending by rank
                     availableCards.sort((a, b) => {
@@ -637,13 +636,11 @@ $(document).ready(function () {
                         }
                     });
     
-                    // Final HTML layout for two rows
-                    let remainingCardsHTML = `
+                    // Update the UI for remaining cards
+                    $("#remaining-cards-list").html(`
                         <div class="card-row">${redRowHTML}</div>
                         <div class="card-row">${blackRowHTML}</div>
-                    `;
-    
-                    $("#remaining-cards-list").html(remainingCardsHTML);
+                    `);
                 } else {
                     $("#remaining-cards-list").html("<p>Error loading remaining cards.</p>");
                 }
@@ -653,7 +650,7 @@ $(document).ready(function () {
                 $("#remaining-cards-list").html("<p>Error loading remaining cards.</p>");
             }
         });
-    }    
+    }
     
 
     function updatePreviousTricks(tricks) {
