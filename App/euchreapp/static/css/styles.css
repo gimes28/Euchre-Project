@@ -1,97 +1,112 @@
 .home-background-wrapper {
     display: grid;
-    grid-template-columns: 2fr 1fr; /* Two-thirds height for left top column, one-third for right top column */
-    grid-template-rows: 3fr 1fr; /* Three-quarter height for top rows, one-quarter for bottom */
-    gap: 10px; /* Optional: Space between grid items */
-    height: calc(100vh - 108px); /* Full viewport height minus toolbar height */
-    max-height: calc(100vh - 108px); /* Full viewport height minus toolbar height */
-    width: 100%; /* Full width */
-    box-sizing: border-box; /* Include padding in height and width */
-    background-color: #f5f5f5; /* Light grey background */
+    grid-template-columns: 2fr 1fr; /* Left takes 3/4, Right takes 1/4 */
+    grid-template-rows: 4fr 1fr; /* Top 4% Bottom 1/5 */
+    row-gap: 10px; /* Apply gap only between rows */
+    column-gap: 0px; /* Remove unnecessary gap between columns */
+    height: calc(100vh - 108px);
+    max-height: calc(100vh - 108px);
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #f5f5f5;
     margin-top: -10px;
     padding: 5px;
     overflow: hidden;
 }
 
-/* Left div occupies the left column in the top 2/3 area */
+.centered-form {
+    position: absolute;
+    top: 44%;
+    left: 34%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 20px;
+    border: 1px solid #333;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    width: fit-content;
+}
+
+/* Left section */
 .left-div {
-    position: relative; /* Ensures child elements can be positioned relative to this container */
-    grid-column: 1 / 2; /* Start from column 1, end before column 2 */
-    grid-row: 1 / 2; /* Start from row 1, end before row 2 */
-    background-image: url('/static/images/card-table-texture.jpg'); /* Card table texture */
-    background-size: cover; /* Ensures the image covers the entire div */
-    background-repeat: no-repeat; /* Prevents tiling */
-    background-position: center; /* Centers the texture */
-    border: 2px solid #333333; /* Dark grey border */
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4); /* Shadow */
-    padding: 20px;
-    text-align: center;
-}
-
-/* Right div occupies the right column in the top 2/3 area */
-.right-div {
-    grid-column: 2 / 3; /* Start from column 2, end before column 3 */
-    grid-row: 1 / 2; /* Start from row 1, end before row 2 */
-    background-color: #e6e6e6; /* Light grey */
-    border: 1px solid #333333; /* Dark grey border */
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4); /* Shadow */
-    padding: 20px;
-    text-align: center;
-}
-
-/* Bottom div spans the full width of the bottom 1/3 area */
-.bottom-div {
-    grid-column: 1 / 3; /* Start from column 1, end before column 3 */
-    grid-row: 2; /* Start from row 2 */
-    display: grid;
-    grid-template-columns: 1fr 2fr; /* left and right halves */
-    grid-template-rows: 1fr; /* Single row */
-    gap: 10px; /* Optional space between columns */
-    height: 100%; /* Ensures it spans 100% of the allocated height */
-    width: 100%; /* Ensures it spans 100% of the allocated width */
-    background-color: #cccccc; /* Medium grey background */
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+    background-image: url('/static/images/card-table-texture.jpg');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: 2px solid #333333;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
     padding: 5px;
-    box-sizing: border-box; /* Includes padding in the layout */
+    margin-right: 5px;
+    text-align: center;
 }
 
-/* Left Side of the Bottom Div (2 Columns) */
-.bottom-left {
+/* Right Column - contains right-div and bottom-right */
+.right-column {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Two equal-width columns */
-    grid-template-rows: 1fr; /* Single row covering full height */
-    gap: 10px; /* Optional space between columns */
-    height: 100%; /* Fills 100% of the parent's height */
-    width: 100%; /* Fills 100% of the parent's width */
+    grid-template-rows: 1fr 1fr 1fr 1fr 1fr 1fr;
+    grid-column: 2 / 2;
+    grid-row: 1 / 6;
+    gap: 10px;
 }
 
-/* First Column in the Left Side */
-.bottom-left-column-1 {
-    display: block; /* Default block layout */
-    background-color: #d9d9d9; /* Light grey */
-    padding: 10px;
-    text-align: center;
+/* Upper right section */
+.right-div {
+    grid-row: 1 / 5;
+    grid-column: 1 / 2;
+    background-color: #e6e6e6;
     border: 1px solid #333333;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    position: relative; /* Ensure proper positioning for child elements */
-    height: 100%; /* Adjust height to fill the available space */
-}
-
-/* Second Column in the Left Side */
-.bottom-left-column-2 {
-    background-color: #e6e6e6; /* Slightly darker grey */
-    padding: 10px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+    padding: 5px;
     text-align: center;
-    border: 1px solid #333333;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* Right Side of the Bottom Div */
+/* Lower right section */
 .bottom-right {
-    background-color: #bfbfbf; /* Medium grey */
+    grid-row: 5 / 7;
+    grid-column: 1 / 2;
+    background-color: #bfbfbf;
     padding: 10px;
     text-align: center;
     border: 1px solid #333333;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Bottom section (Game Score + Trump) */
+/* Bottom section (Game Score + Trump) */
+.bottom-div {
+    grid-column: 1 / 2; /* Ensures it only takes the left portion */
+    grid-row: 2 / 3;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: 110%;
+    background-color: #cccccc;
+    padding: 5px;
+    box-sizing: border-box;
+}
+
+/* Make bottom-left fill full height */
+.bottom-left {
+    display: flex;
+    flex-grow: 1; /* Allow it to take full height */
+    width: 100%;
+    font-weight: bold;
+}
+
+/* Ensure bottom-left-column-1 and bottom-left-column-2 take up the full height */
+.bottom-left-column-1, .bottom-left-column-2 {
+    flex: 1; /* Makes both sections grow equally */
+    background-color: #e6e6e6;
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #333333;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
 }
 
 /* Icon styling */
@@ -123,27 +138,7 @@
     padding: 10px;
     text-align: center;
     font-size: 1.2em;
-    font-weight: bold;
-}
-
-.rectangle.left {
-    grid-area: left;
-}
-
-.rectangle.top {
-    grid-area: top;
-}
-
-.rectangle.center {
-    grid-area: center;
-}
-
-.rectangle.bottom {
-    grid-area: bottom;
-}
-
-.rectangle.right {
-    grid-area: right;
+    font-weight: normal;
 }
 
 .rectangle.center {
@@ -153,8 +148,33 @@
     background-color: transparent; /* Transparent background */
 }
 
+.rectangle.bottom {
+    grid-area: bottom;
+}
+
+.rectangle.top {
+    grid-area: top;
+}
+
+.rectangle.top, .rectangle.bottom {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100%;
+    width: 100%;
+    height: auto;
+    min-height: 100px;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+}
+
 /* Left side: Rotate cards 90 degrees to the right & align top to bottom */
 .rectangle.left {
+    grid-area: left;
     display: flex;
     flex-direction: column; /* Stacks cards vertically */
     justify-content: center; /* Aligns cards at the top */
@@ -172,6 +192,7 @@
 
 /* Right side: Rotate cards 90 degrees to the left & align top to bottom */
 .rectangle.right {
+    grid-area: right;
     display: flex;
     flex-direction: column; /* Stacks cards vertically */
     justify-content: center; /* Aligns cards at the top */
@@ -187,7 +208,6 @@
     margin: -10px 0; /* Overlaps the cards to remove spacing */
 }
 
-
 .center-top-text,
 .center-bottom-text {
     position: absolute;
@@ -199,10 +219,12 @@
 
 .center-top-text {
     top: 10px; /* Position near the top */
+    color: #C4B454;
 }
 
 .center-bottom-text {
     bottom: 10px; /* Position near the bottom */
+    color: #C4B454;
 }
 
 .center-left-text,
@@ -212,6 +234,7 @@
     text-align: center;
     font-size: 1.2rem;
     font-weight: bold;
+    color:#C4B454;
     writing-mode: vertical-rl; /* Ensures text flows vertically */
     text-orientation: mixed; /* Makes text orientation correct */
 }
@@ -228,25 +251,13 @@
     margin-right: 10px;
 }
 
-.centered-form {
-    position: absolute; /* Position relative to the parent container */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%); /* Center the form horizontally and vertically */
-    z-index: 10; /* Higher z-index to appear above the grid */
-    background-color: rgba(255, 255, 255, 0.9); /* Optional: Semi-transparent background for visibility */
-    padding: 20px; /* Padding around the form */
-    border: 1px solid #333; /* Optional: Border around the form */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Optional: Shadow for emphasis */
-}
-
 /* Custom modal to sit within the game board center square */
 .custom-modal {
     position: absolute; /* Allows positioning relative to the parent container */
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 42px;
+    left: 42px;
+    width: 92%;
+    height: 81%;
     background-color: white; /* Optional: Set a background color */
     border: 1px solid #333; /* Match the rectangle border */
     display: none; /* Initially hidden */
@@ -256,7 +267,7 @@
 
 .custom-modal .modal-header {
     font-size: 1.5rem;
-    font-weight: bold;
+    font-weight: normal;
     text-align: center;
     margin: 10px 0;
 }
@@ -271,9 +282,10 @@
     margin-top: 20px;
 }
 
-/* Dealer Icon */
+/* Highlight dealer square and add icon */
 .dealer-highlight {
     position: relative;
+    border: 1.5px solid #db2828 !important;
 }
 
 .dealer-icon {
@@ -284,6 +296,9 @@
     width: 35px; /* Can adjust size */
     height: auto;
     z-index: 2; /* Ensure icon stays above other content */
+    margin: 4px;
+    border-radius: 0px;
+    box-shadow: 4px 4px 5px rgba(0, 0, 0, 0.3)
 }
 
 .trump-suit-icon {
@@ -305,11 +320,35 @@
     padding-top: 20px;
 }
 
+/* Container for the previous tricks tables */
 #previous-tricks-container {
-    max-height: 330px; /* ✅ Updated to 330px */
-    overflow-y: auto;  /* Enables vertical scrolling if content overflows */
-    margin-top: 10px;  
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 10px;
+    justify-content: space-between;
 }
+
+/* Each trick table should take equal space */
+.trick-table {
+    flex: 1;
+    min-width: 300px; /* Ensures responsiveness */
+    text-align: center;
+}
+
+/* Table styling */
+.trick-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* Make sure headers align well */
+.trick-table th, .trick-table td {
+    padding: 8px;
+    border: 1px solid #ccc;
+    text-align: center;
+}
+
 
 #previous-tricks-body tr td {
     text-align: center;
@@ -317,9 +356,62 @@
 }
 
 .playing-card {
+    width: 90px;  /* Adjust based on card size */
+    height: 132px;
+    margin: 4px;
+    box-shadow: 4px 4px 5px rgba(0, 0, 0, 0.3)
+}
+
+.card-group {
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.card-group strong {
+    font-size: 1.2rem;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.card-row {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+#remaining-cards-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+}
+
+#remaining-cards-list img {
+    width: 50px; /* Adjust size as needed */
+    height: auto;
+    margin: 2px;
+}
+
+#remaining-cards-list img {
     width: 80px;  /* Adjust based on card size */
-    height: 111px;
-    margin: 5px;
-    border-radius: 8px;
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
+    height: 110px;
+    margin: 4px;
+    border-radius: 0px;
+    box-shadow: 4px 4px 5px rgba(0, 0, 0, 0.3)
+}
+
+/* Green highlight for Player/Teammate win */
+.winner-green {
+    background-color: #a5d6a7 !important; /* Light Green */
+    font-weight: bold;
+    color: #155724;
+}
+
+/* Red highlight for Opponent 1/Opponent 2 win */
+.winner-red {
+    background-color: #f8d7da !important; /* Light Red */
+    font-weight: bold;
+    color: #721c24;
 }

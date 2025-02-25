@@ -7,7 +7,7 @@ $(document).ready(function () {
 
     // Reset Current Trump and Game Score on Page Load
     $("#current-trump").text("None");
-    $("#game-score").text("Team 1: 0 | Team 2: 0");
+    $("#game-score").text("Player Team: 0 | Opponent Team: 0");
 
 
     // Map cards to their positions
@@ -40,6 +40,18 @@ $(document).ready(function () {
         }
     }
 
+    function displayHighCards(response) {
+        // Display the dealt high cards
+        for (let player in response.dealt_cards) {
+            const cardContainer = $(positions[player]);
+            cardContainer.empty(); // Clear previous cards
+            let highcard = response.dealt_cards[player];
+            //console.log(highcard)
+            let imgSrc = getCardImage(highcard);
+            cardContainer.append(`<img src="${imgSrc}" class="playing-card" data-card="${highcard}" data-player="${player}">`);
+        }
+    }
+
     function revealPlayedCard(player, card) {
         let imgSrc = getCardImage(card);
         $(positions[player]).find(`[data-card='${card}']`).attr("src", imgSrc);
@@ -48,6 +60,7 @@ $(document).ready(function () {
     // Function to display the trump card modal
     function showTrumpCardDialog(card, player) {
         $("#start-game-button").hide();
+        $("#start-game-form").hide();
         $("#ok-round-button").hide();
         $("#modal-round").fadeOut();
         $("#modal-dealer").fadeOut();
@@ -134,7 +147,6 @@ $(document).ready(function () {
     
                 // Update UI with the new trump suit
                 updateTrumpDisplay(response.trump_suit);
-                // displayHumanHand(response.updated_hand);
     
                 // Hide trump modal and show round start confirmation
                 $("#modal-trump").fadeOut();
@@ -146,6 +158,42 @@ $(document).ready(function () {
             }
         });
     }
+
+    // Handle accepting the trump card
+    $("#accept-trump-button").click(function () {
+        resetPlayerHandBeforeTrump(); // Ensure UI is clear before updating
+        
+        const currentPlayer = playerOrder[currentPlayerIndex];
+
+        $.ajax({
+            url: "/accept-trump/",
+            type: "POST",
+            data: { player: currentPlayer, card: gameResponse.remaining_cards[0] },
+            success: function (response) {
+                trumpSelected = true;
+                currentSuit = response.trump_suit;
+
+                // Update the trump suit display
+                updateTrumpDisplay(response.trump_suit);
+
+                // Update the player's hand in their rectangle
+                for (let card in response.updated_hand) {
+                    const cardContainer = $(positions[currentPlayer]);
+                    cardContainer.empty(); // Clear previous cards
+                    let newCard = response.updated_hand[card];
+                    console.log(newCard);
+                    let imgSrc = getCardImage(newCard);
+                    cardContainer.append(`<img src="${imgSrc}" class="playing-card" data-card="${newCard}" data-player="${player}">`);
+                }
+
+                // Show the final message
+                showFinalMessage(`${currentPlayer} accepted the trump card!`);
+            },
+            error: function (xhr) {
+                alert("An error occurred while accepting the trump card: " + xhr.responseText);
+            }
+        });
+    });
     
     function rejectTrump(player, trumpRound) {
         currentPlayerIndex++;
@@ -268,38 +316,25 @@ $(document).ready(function () {
             type: "POST",
             success: function (response) {
 
-                // Deal hands AFTER the game has started
-                $.ajax({
-                    url: "/deal-hand/",
-                    type: "POST",
-                    success: function (response) {
-                        if (response.hands && response.hands["Player"]) {
-                            // displayHumanHand(response.hands["Player"]);
-                        }
-                    }
-                });
-
                 // Fetch and update the game score AFTER starting the game
                 $.ajax({
                     url: "/get-game-score/",
                     type: "GET",
-                    success: function(response) {
-                        updateGameScore(response.team1, response.team2);
+                    success: function(response2) {
+                        updateGameScore(response2.team1, response2.team2);
                     },
                     error: function(xhr) {
                         console.error("Error fetching game score:", xhr.responseText);
                     }
                 });
 
-                // Display the dealt cards
-                for (let player in response.dealt_cards) {
-                    $(positions[player]).text(response.dealt_cards[player]);
-                }
+                // Update UI with high card to determine dealer
+                displayHighCards(response);
 
                 // Highlight the dealer
                 $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
                 const dealerPosition = positions[response.dealer];
-                $(dealerPosition).addClass("dealer-highlight");
+                $(dealerPosition).addClass("dealer-highlight").find(".dealer-icon").add();
                 $(dealerPosition).prepend(`
                     <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
                 `);
@@ -329,12 +364,16 @@ $(document).ready(function () {
                 playerOrder = response.player_order; // Update player order
                 currentPlayerIndex = 0;
                 for (let player in response.hands) {
-                    const cards = response.hands[player].join(", ");
-                    $(positions[player]).text(cards);
+                    // Update UI with new hands
+                    displayDealtCards(response);
 
                     // Highlight the dealer
                     if (player === dealer) {
-                        $(positions[player]).prepend(`
+                        // Highlight the dealer
+                        $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
+                        const dealerPosition = positions[response.dealer];
+                        $(dealerPosition).addClass("dealer-highlight").find(".dealer-icon").add();
+                        $(dealerPosition).prepend(`
                             <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
                         `);
                     }
@@ -352,13 +391,6 @@ $(document).ready(function () {
             }
         });
     });
-
-    // function displayDealtCards(response) {
-    //     for (let player in response.hands) {
-    //         const cards = response.hands[player].join(", ");
-    //         $(positions[player]).text(cards);
-    //     }
-    // }
 
     function initializeDealerModal(response) {
         dealer = response.dealer;
@@ -388,35 +420,6 @@ $(document).ready(function () {
     function resetPlayerHandBeforeTrump() {
         $("#player-hand").empty(); // Clear displayed cards to prevent double-counting
     }
-
-    // Handle accepting the trump card
-    $("#accept-trump-button").click(function () {
-        resetPlayerHandBeforeTrump(); // Ensure UI is clear before updating
-        
-        const currentPlayer = playerOrder[currentPlayerIndex];
-
-        $.ajax({
-            url: "/accept-trump/",
-            type: "POST",
-            data: { player: currentPlayer, card: gameResponse.remaining_cards[0] },
-            success: function (response) {
-                trumpSelected = true;
-                currentSuit = response.trump_suit;
-
-                // Update the trump suit display
-                updateTrumpDisplay(response.trump_suit);
-
-                // Update the player's hand in their rectangle
-                // displayHumanHand(response.updated_hand);
-
-                // Show the final message
-                showFinalMessage(`${currentPlayer} accepted the trump card!`);
-            },
-            error: function (xhr) {
-                alert("An error occurred while accepting the trump card: " + xhr.responseText);
-            }
-        });
-    });
 
     function updateTrumpDisplay(suit) {
         const suitImageMap = {
@@ -479,7 +482,7 @@ $(document).ready(function () {
     function showRoundResults(results) {
         let winningMessage = results.winning_team
             ? `<p><strong>${results.winning_team} won the game!</strong></p>`
-            : `<p>Current Score - Team 1: ${results.team1_points} | Team 2: ${results.team2_points}</p>`;
+            : `<p>Current Score - Player Team: ${results.team1_points} | Opponent Team: ${results.team2_points}</p>`;
 
         // Update game score display
         updateGameScore(results.team1_points, results.team2_points);
@@ -551,8 +554,8 @@ $(document).ready(function () {
                 $.ajax({
                     url: "/get-game-score/",
                     type: "GET",
-                    success: function(response) {
-                        updateGameScore(response.team1, response.team2);
+                    success: function(response2) {
+                        updateGameScore(response2.team1, response2.team2);
                     },
                     error: function(xhr) {
                         console.error("Error fetching game score:", xhr.responseText);
@@ -612,15 +615,17 @@ $(document).ready(function () {
                 console.log(response.message);
                 // Reset Current Trump and Game Score on Page Load
                 $("#current-trump").text("None");
-                $("#game-score").text("Team 1: 0 | Team 2: 0");
+                $("#game-score").text("Player Team: 0 | Opponent Team: 0");
     
                 // Close all modals and reset the UI
                 $(".custom-modal").fadeOut();
                 $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
+                $("#remaining-cards-list").html("<p></p>");
                 
                 // Show the Start Game button again
                 $("#end-game-button").hide();
                 $("#start-game-button").show();
+                $("#start-game-form").show();
             },
             error: function (xhr) {
                 alert("Error ending the game: " + xhr.responseText);
@@ -635,22 +640,70 @@ $(document).ready(function () {
     function updateGameScore(team1, team2) {
         $(".bottom-left-column-2").html(`
             <span>Game Score</span>
-            <p>Team 1: ${team1} points</p>
-            <p>Team 2: ${team2} points</p>
+            <p style="padding-top: 30px; font-size: large;">Player Team: ${team1} points</p>
+            <p style="padding-top: 10px; font-size: large;">Opponent Team: ${team2} points</p>
         `);
     }
 
     function updateRemainingCards() {
+        const redSuits = ["hearts", "diamonds"]; // First row
+        const blackSuits = ["clubs", "spades"]; // Second row
+        const suits = [...redSuits, ...blackSuits]; // Full order
+        const ranks = ["A", "K", "Q", "J", "10", "9"]; // Descending rank order
+    
+        // Generate the full deck of 24 cards
+        let fullDeck = [];
+        suits.forEach(suit => {
+            ranks.forEach(rank => {
+                fullDeck.push(`${rank} of ${suit}`);
+            });
+        });
+    
         $.ajax({
             url: "/get-remaining-cards/",
             type: "GET",
             success: function (response) {
                 if (response.remaining_cards) {
-                    $("#remaining-cards-list").html(
-                        response.remaining_cards.map(card => `<p>${card}</p>`).join("")
-                    );
+                    // Filter out used cards
+                    const usedCards = response.remaining_cards;
+                    let availableCards = fullDeck.filter(card => usedCards.includes(card));
+    
+                    // Sort the available cards: Grouped by suit, descending by rank
+                    availableCards.sort((a, b) => {
+                        let [rankA, suitA] = a.split(" of ");
+                        let [rankB, suitB] = b.split(" of ");
+    
+                        let suitIndexA = suits.indexOf(suitA);
+                        let suitIndexB = suits.indexOf(suitB);
+    
+                        if (suitIndexA !== suitIndexB) {
+                            return suitIndexA - suitIndexB; // Sort by suit order
+                        }
+                        return ranks.indexOf(rankA) - ranks.indexOf(rankB); // Sort descending within suit
+                    });
+    
+                    // Group cards into two rows
+                    let redRowHTML = ""; // Hearts & Diamonds
+                    let blackRowHTML = ""; // Clubs & Spades
+    
+                    availableCards.forEach(card => {
+                        let suit = card.split(" of ")[1];
+                        let cardHTML = `<img src="${getCardImage(card)}" class="playing-card" data-card="${card}">`;
+                        
+                        if (redSuits.includes(suit)) {
+                            redRowHTML += cardHTML;
+                        } else if (blackSuits.includes(suit)) {
+                            blackRowHTML += cardHTML;
+                        }
+                    });
+    
+                    // Update the UI for remaining cards
+                    $("#remaining-cards-list").html(`
+                        <div class="card-row">${redRowHTML}</div>
+                        <div class="card-row">${blackRowHTML}</div>
+                    `);
                 } else {
-                    $("#remaining-cards-list").html("<p>No cards remaining.</p>");
+                    $("#remaining-cards-list").html("<p>Error loading remaining cards.</p>");
                 }
             },
             error: function (xhr) {
@@ -659,29 +712,65 @@ $(document).ready(function () {
             }
         });
     }
+    
 
     function updatePreviousTricks(tricks) {
-        let tricksTable = $("#previous-tricks-body");
-        tricksTable.empty();  // Clear previous entries
+        let playerTeammateBody = document.getElementById("player-teammate-tricks");
+        let opponentBody = document.getElementById("opponent-tricks");
     
-        tricks.forEach(trickData => {
-            let newRow = `
+        // Clear previous data
+        playerTeammateBody.innerHTML = "";
+        opponentBody.innerHTML = "";
+    
+        if (tricks.length === 0) {
+            playerTeammateBody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No tricks played yet.</td></tr>`;
+            opponentBody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No tricks played yet.</td></tr>`;
+            return;
+        }
+    
+        tricks.forEach((trick) => {
+            // Extract players and cards
+            let player = trick.players[0]; // Player
+            let opponent1 = trick.players[1]; // Opponent 1
+            let teammate = trick.players[2]; // Teammate
+            let opponent2 = trick.players[3]; // Opponent 2
+    
+            let playerCard = trick.cards[0]; // Player's card
+            let opponent1Card = trick.cards[1]; // Opponent 1's card
+            let teammateCard = trick.cards[2]; // Teammate's card
+            let opponent2Card = trick.cards[3]; // Opponent 2's card
+            let winner = trick.winner; // Trick Winner
+    
+            // Determine class for the winner cell
+            let playerTeamWinClass = (winner === player || winner === teammate) ? "winner-green" : "";
+            let opponentTeamWinClass = (winner === opponent1 || winner === opponent2) ? "winner-red" : "";
+    
+            // Create rows for each table
+            let playerRow = `
                 <tr>
-                    <td>${trickData.trick_number}</td>
-                    <td>${trickData.players[0]}</td>
-                    <td>${trickData.cards[0]}</td>
-                    <td>${trickData.players[1]}</td>
-                    <td>${trickData.cards[1]}</td>
-                    <td>${trickData.players[2]}</td>
-                    <td>${trickData.cards[2]}</td>
-                    <td>${trickData.players[3]}</td>
-                    <td>${trickData.cards[3]}</td>
-                    <td>${trickData.winner}</td>
+                    <td>${trick.trick_number}</td>
+                    <td>${player}</td>
+                    <td>${playerCard}</td>
+                    <td>${teammate}</td>
+                    <td>${teammateCard}</td>
+                    <td class="${playerTeamWinClass}">${winner}</td>
                 </tr>
             `;
-            tricksTable.append(newRow);
+            playerTeammateBody.innerHTML += playerRow;
+    
+            let opponentRow = `
+                <tr>
+                    <td>${trick.trick_number}</td>
+                    <td>${opponent1}</td>
+                    <td>${opponent1Card}</td>
+                    <td>${opponent2}</td>
+                    <td>${opponent2Card}</td>
+                    <td class="${opponentTeamWinClass}">${winner}</td>
+                </tr>
+            `;
+            opponentBody.innerHTML += opponentRow;
         });
-    }
+    }    
     
     
     function finalizeRound(response) {
