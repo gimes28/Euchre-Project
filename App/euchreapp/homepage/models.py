@@ -329,19 +329,42 @@ def reset_round_state(game):
 
     return deck
 
+def rotate_dealer(game):
+    """
+    Rotates the dealer to the next player in the sequence.
+    """
+    players = list(Player.objects.all())
+
+    if not game.dealer:
+        return players[0]  # Default to first player if no dealer is set
+
+    dealer_index = players.index(game.dealer)
+    next_dealer_index = (dealer_index + 1) % len(players)
+    new_dealer = players[next_dealer_index]
+
+    print(f"✅ Dealer rotated to: {new_dealer.name}")  # Debugging output
+
+    return new_dealer
+
 
 
 def rotate_dealer(game):
     """
-    Rotates the dealer to the player on the left of the current dealer.
+    Rotates the dealer to the next player in the sequence.
     """
     players = list(Player.objects.all())
     if not game.dealer:
-        return players[0]  # Default to the first player if no dealer is set
+        return players[0]  # Default to first player if no dealer is set
 
     dealer_index = players.index(game.dealer)
-    next_dealer_index = (dealer_index + 1) % len(players)
-    return players[next_dealer_index]
+    next_dealer_index = (dealer_index + 1) % len(players)  # Move to next player
+    new_dealer = players[next_dealer_index]
+
+    # Debugging
+    print(f"Dealer rotated to: {new_dealer.name}")
+
+    return new_dealer
+
 
 def play_card(player, hand, card, player_hands, game):
     """

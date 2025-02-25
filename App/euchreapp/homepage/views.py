@@ -5,7 +5,7 @@ from django.contrib.auth.views import LoginView
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from random import shuffle
-from .models import start_euchre_round, Game, Player, Card, deal_hand as model_deal_hand, PlayedCard, reset_round_state, Hand, GameResult
+from .models import start_euchre_round, Game, Player, Card, deal_hand as model_deal_hand, PlayedCard, reset_round_state, Hand, GameResult, rotate_dealer
 
 # Render the homepage
 def home(request):
@@ -126,7 +126,6 @@ def start_new_game(request):
     return JsonResponse({"error": "Invalid request method."}, status=400)
 
 
-
 @csrf_exempt
 def deal_next_hand(request):
     """
@@ -140,15 +139,21 @@ def deal_next_hand(request):
             # Retrieve the latest game
             game = Game.objects.latest('id')
 
-            # Reset round state and rotate dealer
+            # Reset round state (This already rotates the dealer)
             deck = reset_round_state(game)
+
+            # ✅ Remove extra dealer rotation
+            # The dealer should already be rotated inside `reset_round_state`
+            new_dealer = game.dealer
+
+            print(f"✅ New dealer assigned: {new_dealer.name}")
 
             # Get all players and cards
             players = Player.objects.all()
             
-            # Calculate player order starting to the left of the dealer
+            # Calculate player order starting to the left of the new dealer
             player_list = list(players)
-            dealer_index = player_list.index(game.dealer)
+            dealer_index = player_list.index(new_dealer)
             player_order = player_list[dealer_index + 1:] + player_list[:dealer_index + 1]
 
             # Deal new hands
@@ -160,19 +165,22 @@ def deal_next_hand(request):
                     player.name: [f"{card.rank} of {card.suit}" for card in hand]
                     for player, hand in hands.items()
                 },
-                "dealer": game.dealer.name,  # Include the new dealer
+                "dealer": new_dealer.name.strip(),  # Removes any extra spaces
                 "remaining_cards": [f"{card.rank} of {card.suit}" for card in remaining_cards],
                 "player_order": [player.name for player in player_order],
-                "message": "New hands dealt. Begin trump selection."
+                "message": f"New hands dealt. {new_dealer.name} is now the dealer. Begin trump selection."
             }
 
             return JsonResponse(response)
 
         except Exception as e:
-            print(f"Error in deal_next_hand: {str(e)}")
+            print(f"🚨 Error in deal_next_hand: {str(e)}")
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request method."}, status=400)
+
+
+
 
 @csrf_exempt
 def deal_hand(request):
