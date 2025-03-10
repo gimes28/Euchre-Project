@@ -40,6 +40,66 @@ $(document).ready(function () {
         }
     }
 
+    function showTrumpSelection(dealer) {
+        console.log("🃏 Showing Trump Selection Dialog...");
+    
+        $("#modal-trump .modal-content").html(`
+            <p>The dealer is <strong>${dealer}</strong>. Decide the trump suit.</p>
+        `);
+    
+        // Hide unnecessary buttons
+        $("#accept-trump-button, #reject-trump-button, .suit-button").show();
+        $("#ok-trump-button, #restart-trump-button").hide();
+    
+        $("#modal-trump").show(); // Show the modal
+    }
+
+    function showRoundModal(message, phase = "start") {
+        $("#modal-round .modal-content").html(`<p>${message}</p>`);
+    
+        if (phase === "start") {
+            $("#modal-round-button").show();  // Show Start Round button
+            $("#ok-round-button").hide();
+            $("#end-game-button").hide();
+        } else if (phase === "results") {
+            $("#modal-round-button").hide();
+            $("#ok-round-button").show();  // Show OK button to close results
+            $("#end-game-button").hide();
+        } else if (phase === "end") {
+            $("#modal-round-button").hide();
+            $("#ok-round-button").hide();
+            $("#end-game-button").show();  // Show End Game button if game is over
+        }
+    
+        $("#modal-round").fadeIn();
+    }
+    
+    
+    // Ensure the trump selection is called when the hand is dealt
+    function dealNextHand() {
+        $.post("/deal-next-hand/", function(response) {
+            console.log("New hand dealt. Waiting for trump selection...");
+    
+            gameResponse = response;
+            playerOrder = response.player_order;
+            currentPlayerIndex = 0;
+    
+            // ✅ Show the trump card selection dialog with the first remaining card
+            $("#modal-round").fadeOut();
+            setTimeout(() => {
+                if (playerOrder[currentPlayerIndex].is_human == true) {
+                    showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex].name);
+                } else {
+                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], 1);
+                }
+            }, 300);  // Adds delay to ensure previous modal fully closes
+        }).fail(function(error) {
+            console.error("🚨 Error dealing next hand: ", error);
+        });
+    }
+    
+    
+
     function displayHighCards(response) {
         // Display the dealt high cards
         for (let player in response.dealt_cards) {
@@ -62,8 +122,8 @@ $(document).ready(function () {
         $("#start-game-button").hide();
         $("#start-game-form").hide();
         $("#ok-round-button").hide();
-        $("#modal-round").fadeOut();
-        $("#modal-dealer").fadeOut();
+        $("#modal-round").hide();
+        $("#modal-dealer").hide();
         $("#reject-trump-button").show();
         $("#accept-trump-button").show();
         $(".suit-button").hide();
@@ -128,13 +188,18 @@ $(document).ready(function () {
     }    
 
     function acceptTrump(player, card, trumpRound) {
-        const data = { player: dealer, trump_round: trumpRound };
+        const data = { player: player, trump_round: trumpRound };
 
         if (trumpRound === 1) {
-            data.card = card;
+            if (gameResponse.remaining_cards.includes(card)) {
+                data.card = card;
+            } else {
+                console.error(`❌ Error: The selected trump card (${card}) is not in remaining cards.`);
+                return;
+            }
         } else if (trumpRound === 2) {
-            data.suit = card; // The card is actually the selected suit
-        }
+            data.suit = card;
+        }        
         trumpRound = 1; // Reset the trump round to 1 after accepting trump
 
         $.ajax({
@@ -286,12 +351,16 @@ $(document).ready(function () {
 
     // Function to display the round status
     function showRoundStart(message, trumpCaller) {
+        if (!trumpSelected) return;  // Prevents round modal from appearing too early
+
         $("#modal-trump").fadeOut(); // Hide trump modal if still visible
-    
         $("#modal-round .modal-content").html(`
             <p>${message}</p>
             <p><strong>Order of Play:</strong> ${playerOrder.map(player => player.name).join(", ")}</p>
         `);
+    
+        $("#modal-round-button").show();
+        $("#modal-round").fadeIn();
 
         // Hide unnecessary buttons
         $("#accept-trump-button").hide();
@@ -315,34 +384,32 @@ $(document).ready(function () {
             url: "/start-game/", // Matches the URL in urls.py
             type: "POST",
             success: function (response) {
-
-                // Fetch and update the game score AFTER starting the game
-                $.ajax({
-                    url: "/get-game-score/",
-                    type: "GET",
-                    success: function(response2) {
-                        updateGameScore(response2.team1, response2.team2);
-                    },
-                    error: function(xhr) {
-                        console.error("Error fetching game score:", xhr.responseText);
-                    }
-                });
-
-                // Update UI with high card to determine dealer
-                displayHighCards(response);
-
-                // Highlight the dealer
+                console.log("New dealer is:", response.dealer); // Debugging log
+            
+                // ✅ Ensure dealer is highlighted and icon is added on first round
                 $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
-                const dealerPosition = positions[response.dealer];
-                $(dealerPosition).addClass("dealer-highlight").find(".dealer-icon").add();
-                $(dealerPosition).prepend(`
-                    <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
-                `);
-
+            
+                if (response.dealer && positions[response.dealer]) {
+                    const dealerPosition = positions[response.dealer];
+                
+                    console.log(`✅ Updating dealer to: ${response.dealer}`);
+                
+                    $(dealerPosition).addClass("dealer-highlight");
+                
+                    // ✅ Only add the dealer icon if it's missing
+                    if ($(dealerPosition).find(".dealer-icon").length === 0) {
+                        $(dealerPosition).prepend(`
+                            <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
+                        `);
+                    }
+                }
+                 else {
+                    console.error("❌ Error: Dealer position not found in UI during game start.");
+                }
+            
                 initializeDealerModal(response);
-
-                // Set player order for trump selection
-                playerOrder = response.player_order;
+                displayHighCards(response); // Ensure high cards are shown
+                playerOrder = response.player_order; // Set player order for trump selection
             },
             error: function (xhr) {
                 alert("An error occurred: " + xhr.responseText);
@@ -353,7 +420,7 @@ $(document).ready(function () {
     // Deal cards after selecting the dealer
     $("#modal-ok-button").click(function () {
         $("#modal-dealer").fadeOut();
-
+    
         // Deal 5 cards to each player
         $.ajax({
             url: "/deal-hand/",
@@ -361,18 +428,18 @@ $(document).ready(function () {
             data: { dealer: dealer },
             success: function (response) {
                 gameResponse = response;
-                playerOrder = response.player_order; // Update player order
+                playerOrder = response.player_order;
                 currentPlayerIndex = 0;
-                for (let player in response.hands) {
-                    // Update UI with new hands
-                    displayDealtCards(response);
-
-                    // Highlight the dealer
-                    if (player === dealer) {
-                        // Highlight the dealer
-                        $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
-                        const dealerPosition = positions[response.dealer];
-                        $(dealerPosition).addClass("dealer-highlight").find(".dealer-icon").add();
+    
+                displayDealtCards(response);
+    
+                // ✅ Ensure the dealer highlight and icon remain
+                $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
+    
+                if (dealer in positions) {
+                    const dealerPosition = positions[dealer];
+                    $(dealerPosition).addClass("dealer-highlight");
+                    if ($(dealerPosition).find(".dealer-icon").length === 0) {
                         $(dealerPosition).prepend(`
                             <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
                         `);
@@ -390,7 +457,7 @@ $(document).ready(function () {
                 alert("An error occurred while dealing the hand: " + xhr.responseText);
             }
         });
-    });
+    });    
 
     function initializeDealerModal(response) {
         dealer = response.dealer;
@@ -511,99 +578,102 @@ $(document).ready(function () {
 
     // Handle starting the round
     function startRound(trumpCaller) {
+        console.log(`🔄 Starting round. Trump caller: ${trumpCaller}`);
+
         $.ajax({
             url: "/start-round/",
             type: "POST",
             data: { trump_caller: trumpCaller },
             success: function (response) {
-                console.log("Round Results Received:", response);
-    
+                console.log("✅ Round Results Received:", response);
+
                 if (response.error) {
-                    alert("Error: " + response.error);
+                    alert("❌ Error: " + response.error);
                     return;
                 }
-    
+
                 if (response.tricks) {
                     updatePreviousTricks(response.tricks);  // Update all tricks at once
                 }
-    
+
                 if (response.round_results) {
                     finalizeRound(response);
                 }
-    
+
                 updateRemainingCards(); // Refresh remaining cards
             },
             error: function (xhr) {
-                alert("Error starting round: " + xhr.responseText);
+                alert("❌ Error starting round: " + xhr.responseText);
             }
         });
     }
     
     
-
     // OK button to close round results modal, and start next round trump selection
     $("#ok-round-button").click(function () {
         $("#modal-round").fadeOut();  // Hide the round results modal
-
+        dealNextHand(); // ✅ Fix: Ensure trump selection happens first
+    
         $.ajax({
             url: "/deal-next-hand/",  // Redeal hands and rotate dealer
             type: "POST",
             success: function (response) {
+                console.log("New dealer is:", response.dealer); // Debugging log
+            
+                // ✅ Check if the dealer exists in the positions mapping
+                console.log("✅ Available positions keys:", Object.keys(positions)); 
+                console.log("✅ Received dealer:", response.dealer);
+            
+                const normalizedDealer = response.dealer.trim();  // Remove extra spaces
+    
+                if (!positions[normalizedDealer]) {
+                    console.error(`❌ Error: No position found for dealer "${normalizedDealer}"`);
+                    return;  // Exit early to prevent further errors
+                }
+                
+                const dealerPosition = positions[normalizedDealer];
+                
+                console.log(`✅ Updating dealer to: ${normalizedDealer}`);
+                console.log("✅ Dealer position element:", $(dealerPosition)); // Log the actual element
+                
+                const dealerName = response.dealer.trim();  // Ensure correct dealer name
 
-                // Fetch updated game score
-                $.ajax({
-                    url: "/get-game-score/",
-                    type: "GET",
-                    success: function(response2) {
-                        updateGameScore(response2.team1, response2.team2);
-                    },
-                    error: function(xhr) {
-                        console.error("Error fetching game score:", xhr.responseText);
-                    }
-                });
-
-                console.log("New hands dealt:", response);
-
-                // Save response for later reference
-                gameResponse = response;
-                currentPlayerIndex = 0;
-                playerOrder = response.player_order;
-
-                // ✅ Clear previous dealer icon before setting new dealer
-                $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
-
-                // ✅ Highlight the new dealer
-                if (response.dealer && positions[response.dealer]) {
-                    const dealerPosition = positions[response.dealer];
+                if (dealerName in positions) {
+                    const dealerPosition = positions[dealerName];
+                
+                    // ✅ First, clear only if a valid dealer position exists
+                    $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
+                
                     $(dealerPosition).addClass("dealer-highlight");
-                    $(dealerPosition).prepend(`
-                        <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
-                    `);
-                    dealer = response.dealer;
-                } else {
-                    console.error("Error: Dealer position not found in UI.");
-                }
-
-                // Update UI with new hands
-                displayDealtCards(response);
-                //initializeDealerModal(response);
-
-                // 🔥 Start trump selection process with the first trump card
-                if (response.remaining_cards.length > 0) {
-                    if (playerOrder[currentPlayerIndex].is_human == true) {
-                        showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex].name);
-                    } else {
-                        determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], 1);
+                    if ($(dealerPosition).find(".dealer-icon").length === 0) {
+                        $(dealerPosition).prepend(`
+                            <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
+                        `);
                     }
                 } else {
-                    console.error("Error: No remaining cards for trump selection!");
+                    console.error(`❌ Error: No valid dealer position found for "${dealerName}"`);
                 }
-            },
-            error: function (xhr) {
-                alert("An error occurred while dealing the next hand: " + xhr.responseText);
-            }
+                
+                
+                
+                // ✅ Ensure the next round modal is shown
+                $("#modal-round .modal-content").html(`
+                    <p><strong>${response.message}</strong></p>
+                    <p><strong>New Dealer:</strong> ${response.dealer}</p>
+                    <p>Click 'Start Round' to begin.</p>
+                `);
+                $("#modal-round-button").show();
+                $("#modal-round").fadeIn();  // Show the modal for the next round
+    
+                // ✅ Ensure 'Start Round' button triggers the next round
+                $("#modal-round-button").off("click").on("click", function () {
+                    $("#modal-round").fadeOut();
+                    startRound(response.dealer);
+                });
+            }            
         });
     });
+    
 
 
     // End game when one team reaches the points to win
@@ -619,7 +689,6 @@ $(document).ready(function () {
     
                 // Close all modals and reset the UI
                 $(".custom-modal").fadeOut();
-                $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
                 $("#remaining-cards-list").html("<p></p>");
                 
                 // Show the Start Game button again
@@ -774,10 +843,10 @@ $(document).ready(function () {
     
     
     function finalizeRound(response) {
-        console.log("Finalizing round:", response);
+        console.log("🔄 Finalizing round:", response);
     
         if (!response.round_results) {
-            console.error("Error: No round results received!");
+            console.error("❌ Error: No round results received!");
             return;
         }
     
@@ -788,7 +857,11 @@ $(document).ready(function () {
         });
     
         console.log("✅ Round Completed! Displaying results.");
+    
+        // ✅ Ensure the round modal remains visible until the next round starts
+        $("#modal-round").fadeIn();
     }
+    
 
     // // Reset the game when the page loads
     // $.ajax({

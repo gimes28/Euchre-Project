@@ -142,6 +142,7 @@
 }
 
 .rectangle.center {
+    position: relative; /* Needed for absolute positioning to work */
     grid-area: center;
     border: 1px solid #333; /* Border for the center square */
     position: relative; /* To position child elements relative to this square */
@@ -253,16 +254,18 @@
 
 /* Custom modal to sit within the game board center square */
 .custom-modal {
-    position: absolute; /* Allows positioning relative to the parent container */
-    top: 42px;
-    left: 42px;
-    width: 92%;
-    height: 81%;
-    background-color: white; /* Optional: Set a background color */
-    border: 1px solid #333; /* Match the rectangle border */
-    display: none; /* Initially hidden */
-    z-index: 10; /* Ensure it is above other elements */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Optional: Add a subtle shadow */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Centering trick */
+    width: 80%; /* Adjust width as needed */
+    max-width: 500px; /* Prevents it from getting too wide */
+    background-color: white;
+    border: 1px solid #333;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    z-index: 10; /* Ensures it appears above other elements */
+    display: none; /* Hidden by default */
 }
 
 .custom-modal .modal-header {
@@ -290,16 +293,14 @@
 
 .dealer-icon {
     position: absolute;
-    left: 5px; /* Left and top to position icon */
-    top: 83%;
-    transform: translateY(-50%);
-    width: 35px; /* Can adjust size */
+    left: 25px; /* Left and top to position icon */
+    top: 85%;
+    transform: translate(-50%, -50%);
+    width: 40px; /* Adjust size */
     height: auto;
-    z-index: 2; /* Ensure icon stays above other content */
-    margin: 4px;
-    border-radius: 0px;
-    box-shadow: 4px 4px 5px rgba(0, 0, 0, 0.3)
+    z-index: 10; /* Ensure it stays above other elements */
 }
+
 
 .trump-suit-icon {
     width: 105px; /* Set the desired width */
