@@ -83,7 +83,7 @@ class BotLogic:
 
             print("Dealer? ", player_name, dealer)
             # Dealer has to choose suit
-            if player_name == dealer:
+            if player_name == dealer.name:
                 # Dealer has to choose suit
                 # Choose the suit that you have the most of
                 suit_counts = {}
