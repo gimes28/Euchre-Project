@@ -90,7 +90,7 @@ $(document).ready(function () {
                 if (playerOrder[currentPlayerIndex].is_human == true) {
                     showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex].name);
                 } else {
-                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], 1);
+                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], 1, playerOrder);
                 }
             }, 300);  // Adds delay to ensure previous modal fully closes
         }).fail(function(error) {
@@ -269,7 +269,7 @@ $(document).ready(function () {
                 if (playerOrder[currentPlayerIndex].is_human == true) {
                     showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex].name);
                 } else {
-                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], trumpRound);
+                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], trumpRound, playerOrder);
                 }
             }, 400); // Delay prevents modal flickering
             } else if (trumpRound === 2) {
@@ -277,7 +277,7 @@ $(document).ready(function () {
                     if (playerOrder[currentPlayerIndex].is_human == true) {
                         showTrumpCardDialog2ndRound(gameResponse.remaining_cards[0].split(" of ")[1], playerOrder[currentPlayerIndex].name);
                     } else {
-                        determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], trumpRound);
+                        determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], trumpRound, playerOrder);
                     }
                 }, 400); // Delay prevents modal flickering
             }
@@ -291,13 +291,14 @@ $(document).ready(function () {
                 if (playerOrder[currentPlayerIndex].is_human == true) {
                     showTrumpCardDialog2ndRound(gameResponse.remaining_cards[0].split(" of ")[1], playerOrder[currentPlayerIndex].name);
                 } else {
-                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], trumpRound);
+                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], trumpRound, playerOrder);
                 }
             }, 400);
         }
     }
 
-    function determineBotTrumpDecision(player, upCard, trumpRound) {
+    function determineBotTrumpDecision(player, upCard, trumpRound, playerOrder) {
+        console.log("PLAYER ORDER: ", playerOrder)
         $.ajax({
             url: "/determine-trump/",
             type: "POST",
@@ -306,7 +307,7 @@ $(document).ready(function () {
                 dealer: dealer,
                 up_card: upCard,
                 trump_round: trumpRound,
-                player_order: playerOrder
+                player_order: JSON.stringify(playerOrder)
             },
             async: false,
             success: function (response) {
@@ -450,7 +451,7 @@ $(document).ready(function () {
                 if (playerOrder[currentPlayerIndex].is_human == true) {
                     showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex].name);
                 } else {
-                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], 1);
+                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], 1, playerOrder);
                 }
             },
             error: function (xhr) {
@@ -475,7 +476,7 @@ $(document).ready(function () {
             if (playerOrder[currentPlayerIndex].is_human == true) {
                 showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex].name);
             } else {
-                determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], 1);
+                determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], 1, playerOrder);
             }
         } else {
             showFinalMessage("No one accepted the trump card.");

@@ -26,7 +26,8 @@ class Player(models.Model):
 
         bot_logic = BotLogic()
 
-        return bot_logic.determine_trump(self.name, bot_hand, game.dealer, up_card, player_order, trump_round)
+        # return bot_logic.determine_trump(self.name, bot_hand, game.dealer, up_card, player_order, trump_round)
+        return bot_logic.determine_trump_by_ranking(self.name, bot_hand, game.dealer, up_card, player_order, trump_round)
 
 
 class Game(models.Model):

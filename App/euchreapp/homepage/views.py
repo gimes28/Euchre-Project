@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from random import shuffle
 from .models import start_euchre_round, Game, Player, Card, deal_hand as model_deal_hand, PlayedCard, reset_round_state, Hand, GameResult, rotate_dealer
+import json
 
 # Render the homepage
 def home(request):
@@ -580,7 +581,9 @@ def determine_bot_trump_decision(request):
             up_card = request.POST.get("up_card")
 
             # Fetch the player order
-            player_order = request.POST.get("player_order")
+            player_order = json.loads(request.POST.get("player_order"))
+
+            print("PLAYER ORDER: ", player_order)
 
             # Determine the trump decision
             trump_decision = bot.determine_trump(game, up_card, player_order, trump_round)
