@@ -78,6 +78,7 @@ $(document).ready(function () {
     // Ensure the trump selection is called when the hand is dealt
     function dealNextHand() {
         $.post("/deal-next-hand/", function(response) {
+            console.log("SECOND DEAL NEXT HAND FUNCTION CALLED???")
             console.log("New hand dealt. Waiting for trump selection...");
     
             gameResponse = response;
@@ -98,7 +99,7 @@ $(document).ready(function () {
         });
     }
     
-    
+
 
     function displayHighCards(response) {
         // Display the dealt high cards
@@ -188,7 +189,7 @@ $(document).ready(function () {
     }    
 
     function acceptTrump(player, card, trumpRound) {
-        const data = { player: player, trump_round: trumpRound };
+        const data = { trump_round: trumpRound };
 
         if (trumpRound === 1) {
             if (gameResponse.remaining_cards.includes(card)) {
@@ -298,7 +299,6 @@ $(document).ready(function () {
     }
 
     function determineBotTrumpDecision(player, upCard, trumpRound, playerOrder) {
-        console.log("PLAYER ORDER: ", playerOrder)
         $.ajax({
             url: "/determine-trump/",
             type: "POST",
@@ -619,11 +619,14 @@ $(document).ready(function () {
             url: "/deal-next-hand/",  // Redeal hands and rotate dealer
             type: "POST",
             success: function (response) {
+                console.log("DEAL NEXT HAND FUNCTION CALLED")
                 console.log("New dealer is:", response.dealer); // Debugging log
             
                 // ✅ Check if the dealer exists in the positions mapping
                 console.log("✅ Available positions keys:", Object.keys(positions)); 
                 console.log("✅ Received dealer:", response.dealer);
+                
+                displayDealtCards(response);
             
                 const normalizedDealer = response.dealer.trim();  // Remove extra spaces
     

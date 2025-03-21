@@ -289,18 +289,9 @@ def accept_trump(request):
     if request.method == "POST":
         try:
             trump_round = request.POST.get("trump_round")
-            player_name = request.POST.get("player")
 
             if not trump_round:
                 return JsonResponse({"error": "Missing trump round data."}, status=400)
-            if not player_name:
-                return JsonResponse({"error": "Missing player data."}, status=400)
-            
-            # Fetch player
-            try:
-                player = Player.objects.get(name=player_name)
-            except Player.DoesNotExist:
-                return JsonResponse({"error": f"Player '{player_name}' does not exist."}, status=400)
 
             # Fetch latest game
             try:
@@ -335,38 +326,27 @@ def accept_trump(request):
                     return JsonResponse({"error": f"Card '{card_info}' does not exist."}, status=400)
 
                 # Get player's current hand
-                player_hand = PlayedCard.objects.filter(player=player, hand=latest_hand)
+                dealer_played_cards = PlayedCard.objects.filter(player=game.dealer, hand=latest_hand)
 
-                # Ensure player has space for a new card
-                if player_hand.count() >= 5:
-                    # Find lowest non-trump card
-                    def card_rank_value(c):
-                        rank_order = ['9', '10', 'J', 'Q', 'K', 'A']
-                        return rank_order.index(c.card.rank)
-
-                    non_trump_cards = [pc for pc in player_hand if pc.card.suit != suit]
-                    worst_card = min(non_trump_cards or player_hand, key=lambda c: card_rank_value(c))
-
-                    # Remove the worst card
-                    print(f"Discarding {worst_card.card.rank} of {worst_card.card.suit} from {player.name}")
-                    worst_card.delete()
+                # Convert to list of Cards for dealer_pickup
+                dealer_hand = [played_card.card for played_card in dealer_played_cards]
                 
-                # Ensure the card is not already in the player's hand
-                if PlayedCard.objects.filter(player=player, card=card, hand=latest_hand).exists():
-                    return JsonResponse({"error": "This card is already in the player's hand."}, status=400)
+                updated_dealer_hand = game.dealer.dealer_pickup(dealer_hand, card)
 
-                # Add the new trump card
-                PlayedCard.objects.create(
-                    player=player,
-                    card=card,
-                    hand=latest_hand,
-                    order=player_hand.count() + 1  # Ensure correct order
-                )
+                dealer_played_cards.delete()
+
+                for i, card in enumerate(updated_dealer_hand):
+                    PlayedCard.objects.create(
+                        player=game.dealer,
+                        card=card,
+                        hand=latest_hand,
+                        order=i + 1  # Ensure correct order
+                    )
 
                 # Retrieve updated hand
                 updated_hand = [
                     f"{pc.card.rank} of {pc.card.suit}"
-                    for pc in PlayedCard.objects.filter(player=player, hand=latest_hand)
+                    for pc in PlayedCard.objects.filter(player=game.dealer, hand=latest_hand)
                 ]
 
                 # Update the game's trump suit
@@ -449,7 +429,12 @@ def start_round(request):
     if request.method == "POST":
         try:
             game = Game.objects.latest('id')
-            trump_caller = request.POST.get("trump_caller")
+            trump_caller_name = request.POST.get("trump_caller")
+
+            try:
+                trump_caller = Player.objects.get(name=trump_caller_name)
+            except Player.DoesNotExist:
+                return JsonResponse({"error": f"Player '{trump_caller_name}' does not exist."}, status=400)
 
             # Ensure a previous hand exists in the game
             if not game.hands.exists():
@@ -576,17 +561,24 @@ def determine_bot_trump_decision(request):
                 bot = Player.objects.get(name=bot_name)
             except Player.DoesNotExist:
                 return JsonResponse({"error": f"Player '{bot_name}' does not exist."}, status=400)
+            
+            # Fetch the latest hand
+            latest_hand = Hand.objects.filter(game=game).order_by('-id').first()
 
-            # Fetch the upcard
-            up_card = request.POST.get("up_card")
+            bot_hand_played_cards = PlayedCard.objects.filter(player=bot, hand=latest_hand)
+            bot_hand = [played_card.card for played_card in bot_hand_played_cards]
+
+            # Fetch the up card
+            up_card_string = request.POST.get("up_card")
+            up_card_rank, up_card_suit = up_card_string.split(" of ")
+            up_card = Card.objects.get(rank=up_card_rank, suit=up_card_suit)
 
             # Fetch the player order
-            player_order = json.loads(request.POST.get("player_order"))
-
-            print("PLAYER ORDER: ", player_order)
+            player_order_data = json.loads(request.POST.get("player_order"))
+            player_order = [Player.objects.get(name=player['name']) for player in player_order_data]
 
             # Determine the trump decision
-            trump_decision = bot.determine_trump(game, up_card, player_order, trump_round)
+            trump_decision = bot.determine_trump(bot_hand, game.dealer, up_card, player_order, trump_round)
 
             return JsonResponse({"decision": trump_decision})
 

@@ -6,7 +6,7 @@ from .models import Game, Player, Hand, Card, PlayedCard, GameResult
 # Register the Player model
 @admin.register(Player)
 class PlayerAdmin(admin.ModelAdmin):
-    list_display = ("name", "is_human")
+    list_display = ("name", "is_human", "team", "partner")
     search_fields = ("name",)
     list_filter = ("is_human",)
 
