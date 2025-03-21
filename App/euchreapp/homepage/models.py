@@ -169,6 +169,7 @@ def deal_hand(deck, players, game):
 
         # Debugging: Print hands before returning
         print(f"🔥 DEBUG: Hands dealt: {hands}")
+        print(f"🔥 DEBUG: Kitty after dealing: {deck}")
 
         return hands, deck  # **Ensure this returns a tuple of (hands, remaining_cards)**
 
