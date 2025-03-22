@@ -199,11 +199,8 @@ $(document).ready(function () {
                     kitty[0].card = response.discarded_card;
                     updateKittyDisplay();
 
-                    console.log("Dealer is:", dealer);
-                    console.log("Dealer equals Player:", dealer === "Player");
                     // Update the Player's hand display if they are the dealer (they picked up the up card)
                     if (dealer === "Player") {
-                        console.log("Updating Player's hand");
                         updateDealerHand(dealer, response.updated_hand);
                     }
                 }
