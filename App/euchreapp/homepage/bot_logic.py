@@ -285,7 +285,10 @@ class Bot(Player):
             return self.choose_lead_card(hand, trump_suit, previous_cards, partner_called_trump, player_called_trump, opponent_called_trump)
         
         # Not leading, so get suit that was lead
-        lead_suit = played_cards[0].card.suit
+        if played_cards[0].card.is_left_bower(trump_suit):
+            lead_suit = played_cards[0].card.next_suit()
+        else:
+            lead_suit = played_cards[0].card.suit
 
         # Find winner of current trick
         winning_card = max(played_cards, key=lambda pc: Card.euchre_rank(pc.card, trump_suit, lead_suit))

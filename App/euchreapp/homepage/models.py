@@ -225,8 +225,8 @@ class Player(models.Model):
         Determines the best card to play in a trick
         """
 
-        partner_called_trump = trump_caller == self.partner
-        player_called_trump = trump_caller == self.name
+        partner_called_trump = trump_caller.name == self.partner
+        player_called_trump = trump_caller.name == self.name
         opponent_called_trump = not partner_called_trump and not player_called_trump # TODO: It can be useful to know which opponent called trump specifically as that can change the card to play
 
         # Check if you are leading
@@ -235,7 +235,10 @@ class Player(models.Model):
             return self.choose_lead_card(hand, trump_suit, previous_cards, partner_called_trump, player_called_trump, opponent_called_trump)
         
         # Not leading, so get suit that was lead
-        lead_suit = played_cards[0].card.suit
+        if played_cards[0].card.is_left_bower(trump_suit):
+            lead_suit = played_cards[0].card.next_suit()
+        else:
+            lead_suit = played_cards[0].card.suit
 
         # Find winner of current trick
         winning_played_card = max(played_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit, lead_suit))
@@ -318,7 +321,8 @@ class Player(models.Model):
         trump_cards = self.get_trump_cards(hand, trump_suit)
 
         # Get all cards that are the highest card in the suit remaining
-        boss_cards = self.get_boss_cards_in_hand(hand, trump_suit, previous_cards)
+        boss_cards = self.get_boss_cards_in_hand(hand, previous_cards)
+        non_trump_boss = [card for card in boss_cards if card.suit != trump_suit]
 
         # Lead strong if partner called trump
         if partner_called_trump and trump_cards:
@@ -334,21 +338,20 @@ class Player(models.Model):
 
         # If opponents called, lead boss off suit if you have it or lead low
         if opponent_called_trump:
-            if boss_cards:
-                return max(boss_cards, key=lambda x: Card.euchre_rank(x, trump_suit))
+            if non_trump_boss:
+                return max(non_trump_boss, key=lambda x: Card.euchre_rank(x, trump_suit))
             else:
                 return min(hand, key=lambda x: Card.euchre_rank(x, trump_suit))
             
         # Lead highest off suit if it is a boss card
         if boss_cards:
-            non_trump_boss = [card for card in boss_cards if card.suit != trump_suit]
             if non_trump_boss:
                 return max(non_trump_boss, key=lambda x: Card.euchre_rank(x, trump_suit))
 
         # Otherwise, simply lead lowest card
         return min(hand, key=lambda x: Card.euchre_rank(x, trump_suit))
 
-    def get_boss_cards_in_hand(self, hand, trump_suit, previous_cards):
+    def get_boss_cards_in_hand(self, hand, previous_cards):
         """
         Determines all boss cards in hand
         """
@@ -388,7 +391,7 @@ class Player(models.Model):
         """
         Determines if a card is the highest card of the highest rank remaining in the suit
         """
-        highest_card = self.get_boss_card(card.suit, previous_cards)
+        highest_card = self.get_boss_card(card.suit, previous_cards, card.is_trump)
 
         return card.rank == highest_card.rank and card.suit == highest_card.suit
 
