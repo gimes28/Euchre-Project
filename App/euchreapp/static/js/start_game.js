@@ -3,7 +3,8 @@ $(document).ready(function () {
     let playerOrder = [];
     let currentSuit = "";
     let trumpSelected = false;
-    let gameResponse = null; // Store the global response object here
+    let gameResponse = null;
+    let kitty = [] // Store the global response object here
 
     // Reset Current Trump and Game Score on Page Load
     $("#current-trump").text("None");
@@ -75,31 +76,6 @@ $(document).ready(function () {
     }
     
     
-    // Ensure the trump selection is called when the hand is dealt
-    function dealNextHand() {
-        $.post("/deal-next-hand/", function(response) {
-            console.log("SECOND DEAL NEXT HAND FUNCTION CALLED???")
-            console.log("New hand dealt. Waiting for trump selection...");
-    
-            gameResponse = response;
-            playerOrder = response.player_order;
-            currentPlayerIndex = 0;
-    
-            // ✅ Show the trump card selection dialog with the first remaining card
-            $("#modal-round").fadeOut();
-            setTimeout(() => {
-                if (playerOrder[currentPlayerIndex].is_human == true) {
-                    showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex].name);
-                } else {
-                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], 1, playerOrder);
-                }
-            }, 300);  // Adds delay to ensure previous modal fully closes
-        }).fail(function(error) {
-            console.error("🚨 Error dealing next hand: ", error);
-        });
-    }
-    
-
 
     function displayHighCards(response) {
         // Display the dealt high cards
@@ -199,6 +175,11 @@ $(document).ready(function () {
                 return;
             }
         } else if (trumpRound === 2) {
+        
+            // Update kitty by flipping up card
+            kitty[0].faceup = false;
+            updateKittyDisplay();
+
             data.suit = card;
         }        
         trumpRound = 1; // Reset the trump round to 1 after accepting trump
@@ -210,6 +191,20 @@ $(document).ready(function () {
             success: function (response) {
                 trumpSelected = true;
                 currentSuit = response.trump_suit;
+                dealer = response.dealer;
+
+                // Update and display the kitty after the dealer picks up and discards
+                if (trumpRound === 1) {
+                    // Update and display the kitty after the dealer picks up and discards
+                    kitty[0].faceup = false;
+                    kitty[0].card = response.discarded_card;
+                    updateKittyDisplay();
+
+                    // Update the Player's hand display if they are the dealer (they picked up the up card)
+                    if (dealer === "Player") {
+                        updateDealerHand(dealer, response.updated_hand);
+                    }
+                }
     
                 // Update UI with the new trump suit
                 updateTrumpDisplay(response.trump_suit);
@@ -225,41 +220,15 @@ $(document).ready(function () {
         });
     }
 
-    // Handle accepting the trump card
-    $("#accept-trump-button").click(function () {
-        resetPlayerHandBeforeTrump(); // Ensure UI is clear before updating
-        
-        const currentPlayer = playerOrder[currentPlayerIndex];
+    function updateDealerHand(player, cards) {
+        const cardContainer = $(positions["Player"]);
+        cardContainer.empty(); // Clear previous cards
 
-        $.ajax({
-            url: "/accept-trump/",
-            type: "POST",
-            data: { player: currentPlayer, card: gameResponse.remaining_cards[0] },
-            success: function (response) {
-                trumpSelected = true;
-                currentSuit = response.trump_suit;
-
-                // Update the trump suit display
-                updateTrumpDisplay(response.trump_suit);
-
-                // Update the player's hand in their rectangle
-                for (let card in response.updated_hand) {
-                    const cardContainer = $(positions[currentPlayer]);
-                    cardContainer.empty(); // Clear previous cards
-                    let newCard = response.updated_hand[card];
-                    console.log(newCard);
-                    let imgSrc = getCardImage(newCard);
-                    cardContainer.append(`<img src="${imgSrc}" class="playing-card" data-card="${newCard}" data-player="${player}">`);
-                }
-
-                // Show the final message
-                showFinalMessage(`${currentPlayer} accepted the trump card!`);
-            },
-            error: function (xhr) {
-                alert("An error occurred while accepting the trump card: " + xhr.responseText);
-            }
+        cards.forEach(card => {
+            let imgSrc = player === "Player" ? getCardImage(card) : getCardImage("Hidden");
+            cardContainer.append(`<img src="${imgSrc}" class="playing-card" data-card="${card}" data-player="${player}">`);
         });
-    });
+    }
     
     function rejectTrump(player, trumpRound) {
         currentPlayerIndex++;
@@ -286,6 +255,10 @@ $(document).ready(function () {
             // Everyone passed in first round, so start second round
             trumpRound = 2;
             currentPlayerIndex = 0;
+
+            // Update kitty
+            kitty[0].faceup = false;
+            updateKittyDisplay();
             
             // Give trump dialog box, but this time player can select any suit except for the upCardSuit
             setTimeout(() => {
@@ -432,6 +405,7 @@ $(document).ready(function () {
                 playerOrder = response.player_order;
                 currentPlayerIndex = 0;
     
+                initializeKitty(response.remaining_cards);
                 displayDealtCards(response);
     
                 // ✅ Ensure the dealer highlight and icon remain
@@ -459,6 +433,43 @@ $(document).ready(function () {
             }
         });
     });    
+
+    function initializeKitty(remainingCards) {
+        console.log("Initializing kitty with:", remainingCards);
+        kitty = remainingCards.map((card, index) => {
+            return {
+                card: card,
+                faceup: index === 0
+            }
+        });
+        updateKittyDisplay();
+    }
+
+    function updateKittyDisplay() {
+        const container = document.getElementById("remaining-cards-list");
+        container.innerHTML = "";
+
+        kitty.forEach(item => {
+            const cardSrc = item.faceup ? getCardImage(item.card) : getCardImage("Hidden");
+
+            container.innerHTML += `
+                <img class="playing-card" src="${cardSrc}" data-card="${item.card}">
+            `;
+        });
+
+        // Create a grid container
+        container.innerHTML = `
+            <div class="kitty-grid">
+                <div class="kitty-row">
+                    <img class="playing-card" src="${kitty[0].faceup ? getCardImage(kitty[0].card) : getCardImage("Hidden")}" data-card="${kitty[0].card}">
+                    <img class="playing-card" src="${kitty[1].faceup ? getCardImage(kitty[1].card) : getCardImage("Hidden")}" data-card="${kitty[1].card}">
+                    <img class="playing-card" src="${kitty[2].faceup ? getCardImage(kitty[2].card) : getCardImage("Hidden")}" data-card="${kitty[2].card}">
+                    <img class="playing-card" src="${kitty[3].faceup ? getCardImage(kitty[3].card) : getCardImage("Hidden")}" data-card="${kitty[3].card}">
+                </div>
+            </div>
+        `;
+
+    }
 
     function initializeDealerModal(response) {
         dealer = response.dealer;
@@ -601,82 +612,109 @@ $(document).ready(function () {
                     finalizeRound(response);
                 }
 
-                updateRemainingCards(); // Refresh remaining cards
+                // updateRemainingCards(); // Refresh remaining cards
+                revealKitty();
             },
             error: function (xhr) {
                 alert("❌ Error starting round: " + xhr.responseText);
             }
         });
     }
+
+    function revealKitty() {
+        kitty.forEach(item => item.faceup = true);
+        updateKittyDisplay();
+    }
     
     
     // OK button to close round results modal, and start next round trump selection
     $("#ok-round-button").click(function () {
         $("#modal-round").fadeOut();  // Hide the round results modal
-        dealNextHand(); // ✅ Fix: Ensure trump selection happens first
+        // dealNextHand(); // ✅ Fix: Ensure trump selection happens first
     
         $.ajax({
             url: "/deal-next-hand/",  // Redeal hands and rotate dealer
             type: "POST",
             success: function (response) {
-                console.log("DEAL NEXT HAND FUNCTION CALLED")
-                console.log("New dealer is:", response.dealer); // Debugging log
-            
-                // ✅ Check if the dealer exists in the positions mapping
-                console.log("✅ Available positions keys:", Object.keys(positions)); 
-                console.log("✅ Received dealer:", response.dealer);
-                
-                displayDealtCards(response);
-            
-                const normalizedDealer = response.dealer.trim();  // Remove extra spaces
-    
-                if (!positions[normalizedDealer]) {
-                    console.error(`❌ Error: No position found for dealer "${normalizedDealer}"`);
-                    return;  // Exit early to prevent further errors
-                }
-                
-                const dealerPosition = positions[normalizedDealer];
-                
-                console.log(`✅ Updating dealer to: ${normalizedDealer}`);
-                console.log("✅ Dealer position element:", $(dealerPosition)); // Log the actual element
-                
-                const dealerName = response.dealer.trim();  // Ensure correct dealer name
 
-                if (dealerName in positions) {
-                    const dealerPosition = positions[dealerName];
+                gameResponse = response;
+                playerOrder = response.player_order;
+                currentPlayerIndex = 0;
                 
-                    // ✅ First, clear only if a valid dealer position exists
-                    $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
-                
-                    $(dealerPosition).addClass("dealer-highlight");
-                    if ($(dealerPosition).find(".dealer-icon").length === 0) {
-                        $(dealerPosition).prepend(`
-                            <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
-                        `);
+                initializeKitty(response.remaining_cards);
+                displayDealtCards(response);
+
+                displayDealtCards(response);
+                updateDealerPosition(response);
+
+                // ✅ Show the trump card selection dialog with the first remaining card
+                $("#modal-round").fadeOut();
+                setTimeout(() => {
+                    if (playerOrder[currentPlayerIndex].is_human == true) {
+                        showTrumpCardDialog(response.remaining_cards[0], playerOrder[currentPlayerIndex].name);
+                    } else {
+                        determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], 1, playerOrder);
                     }
-                } else {
-                    console.error(`❌ Error: No valid dealer position found for "${dealerName}"`);
-                }
-                
-                
-                
-                // ✅ Ensure the next round modal is shown
-                $("#modal-round .modal-content").html(`
-                    <p><strong>${response.message}</strong></p>
-                    <p><strong>New Dealer:</strong> ${response.dealer}</p>
-                    <p>Click 'Start Round' to begin.</p>
-                `);
-                $("#modal-round-button").show();
-                $("#modal-round").fadeIn();  // Show the modal for the next round
-    
-                // ✅ Ensure 'Start Round' button triggers the next round
-                $("#modal-round-button").off("click").on("click", function () {
-                    $("#modal-round").fadeOut();
-                    startRound(response.dealer);
-                });
-            }            
+                }, 300);  // Adds delay to ensure previous modal fully closes
+            }
+        }).fail(function(error) {
+                console.error("🚨 Error dealing next hand: ", error);
         });
     });
+                
+                
+                // // ✅ Ensure the next round modal is shown
+                // $("#modal-round .modal-content").html(`
+                //     <p><strong>${response.message}</strong></p>
+                //     <p><strong>New Dealer:</strong> ${response.dealer}</p>
+                //     <p>Click 'Start Round' to begin.</p>
+                // `);
+                // $("#modal-round-button").show();
+                // $("#modal-round").fadeIn();  // Show the modal for the next round
+    
+                // // ✅ Ensure 'Start Round' button triggers the next round
+                // $("#modal-round-button").off("click").on("click", function () {
+                //     $("#modal-round").fadeOut();
+                //     startRound(response.dealer);
+                // });
+
+    function updateDealerPosition(response) {
+        console.log("New dealer is:", response.dealer); // Debugging log
+    
+        // ✅ Check if the dealer exists in the positions mapping
+        console.log("✅ Available positions keys:", Object.keys(positions)); 
+        console.log("✅ Received dealer:", response.dealer);
+    
+        const normalizedDealer = response.dealer.trim();  // Remove extra spaces
+
+        if (!positions[normalizedDealer]) {
+            console.error(`❌ Error: No position found for dealer "${normalizedDealer}"`);
+            return;  // Exit early to prevent further errors
+        }
+        
+        const dealerPosition = positions[normalizedDealer];
+        
+        console.log(`✅ Updating dealer to: ${normalizedDealer}`);
+        console.log("✅ Dealer position element:", $(dealerPosition)); // Log the actual element
+        
+        const dealerName = response.dealer.trim();  // Ensure correct dealer name
+
+        if (dealerName in positions) {
+            const dealerPosition = positions[dealerName];
+        
+            // ✅ First, clear only if a valid dealer position exists
+            $(".rectangle").removeClass("dealer-highlight").find(".dealer-icon").remove();
+        
+            $(dealerPosition).addClass("dealer-highlight");
+            if ($(dealerPosition).find(".dealer-icon").length === 0) {
+                $(dealerPosition).prepend(`
+                    <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
+                `);
+            }
+        } else {
+            console.error(`❌ Error: No valid dealer position found for "${dealerName}"`);
+        }
+    }
     
 
 
@@ -718,7 +756,7 @@ $(document).ready(function () {
         `);
     }
 
-    function updateRemainingCards() {
+    function updateRemainingCards(showCards=false) {
         const redSuits = ["hearts", "diamonds"]; // First row
         const blackSuits = ["clubs", "spades"]; // Second row
         const suits = [...redSuits, ...blackSuits]; // Full order

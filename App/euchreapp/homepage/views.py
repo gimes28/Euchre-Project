@@ -220,10 +220,6 @@ def deal_hand(request):
 
             hands, remaining_cards = result  # This line previously failed
 
-            # Debugging: Print hands and remaining cards
-            print(f"🔥 DEBUG: Hands dealt successfully: {hands}")
-            print(f"🔥 DEBUG: Remaining cards after dealing: {[f'{card.rank} of {card.suit}' for card in remaining_cards]}")
-
             # Prepare the response
             response = {
                 "hands": {
@@ -330,12 +326,16 @@ def accept_trump(request):
 
                 # Convert to list of Cards for dealer_pickup
                 dealer_hand = [played_card.card for played_card in dealer_played_cards]
+
+                dealer_hand.append(card)
                 
-                updated_dealer_hand = game.dealer.dealer_pickup(dealer_hand, card)
+                # updated_dealer_hand = game.dealer.dealer_pickup(dealer_hand, card)
+                discarded_card = game.dealer.dealer_discard(dealer_hand, card.suit)
+                dealer_hand.remove(discarded_card)
 
                 dealer_played_cards.delete()
 
-                for i, card in enumerate(updated_dealer_hand):
+                for i, card in enumerate(dealer_hand):
                     PlayedCard.objects.create(
                         player=game.dealer,
                         card=card,
@@ -355,7 +355,9 @@ def accept_trump(request):
 
                 return JsonResponse({
                     "trump_suit": suit,
-                    "updated_hand": updated_hand
+                    "updated_hand": updated_hand,
+                    "discarded_card": f"{discarded_card.rank} of {discarded_card.suit}",
+                    "dealer": game.dealer.name
                 })
 
             # Handle round 2 of trump selection

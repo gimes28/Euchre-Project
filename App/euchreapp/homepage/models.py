@@ -33,7 +33,11 @@ class Player(models.Model):
                 # Dealer should analyze their hand as if they already picked up the up card
                 print(f"Dealer {self.name} analyzing hand as if they already picked up the up card")
                 temp_hand = list(hand)
-                temp_hand = self.dealer_pickup(temp_hand, up_card)
+                temp_hand.append(up_card)
+
+                # Discard a card
+                discarded_card = self.dealer_discard(temp_hand, up_card.suit)
+                temp_hand.remove(discarded_card)
 
                 hand_score = self.evaluate_hand(temp_hand, trump_suit)
                 print(f"Dealer {self.name} hand score: {hand_score}")
@@ -221,25 +225,14 @@ class Player(models.Model):
         Determines the best card to play in a trick
         """
 
-        print(f"Determining best card for {self.name}")
-        # Print variables for debugging
-        print(f"Hand: {hand}")
-        print(f"Trump suit: {trump_suit}")
-        print(f"Played cards: {played_cards}")
-        print(f"Previous cards: {previous_cards}")
-        print(f"Trump caller: {trump_caller}")
-
         partner_called_trump = trump_caller == self.partner
         player_called_trump = trump_caller == self.name
         opponent_called_trump = not partner_called_trump and not player_called_trump # TODO: It can be useful to know which opponent called trump specifically as that can change the card to play
 
         # Check if you are leading
         if not played_cards:
-            print("No played cards yet, choosing lead card.")
             # Decide what card to lead
             return self.choose_lead_card(hand, trump_suit, previous_cards, partner_called_trump, player_called_trump, opponent_called_trump)
-        
-        print("Played cards already, choosing card to play.")
         
         # Not leading, so get suit that was lead
         lead_suit = played_cards[0].card.suit
@@ -408,21 +401,6 @@ class Player(models.Model):
                 
     def get_trump_cards(self, hand, trump_suit):
         return [card for card in hand if card.suit == trump_suit or card.is_left_bower(trump_suit)]
-
-    def dealer_pickup(self, dealer_hand, up_card):
-        """
-        Dealer gets up card and discards card
-        """
-        # Dealer gets up card and discards card
-        dealer_hand.append(up_card)
-
-        trump_suit = up_card.suit
-
-        # Discard lowest non-trump card for now # TODO: Improve discarding logic (making a void is more valuable than discarding a low card)
-
-        card_to_discard = self.dealer_discard(dealer_hand, trump_suit)
-        dealer_hand.remove(card_to_discard)
-        return dealer_hand
 
     def dealer_discard(self, dealer_hand, trump_suit):
         """
@@ -642,6 +620,7 @@ def deal_hand(deck, players, game):
 
         # Debugging: Print hands before returning
         print(f"🔥 DEBUG: Hands dealt: {hands}")
+        print(f"🔥 DEBUG: Kitty after dealing: {deck}")
 
         return hands, deck  # **Ensure this returns a tuple of (hands, remaining_cards)**
 

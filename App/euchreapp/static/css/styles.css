@@ -14,6 +14,17 @@
     overflow: hidden;
 }
 
+.kitty-row {
+    display: flex;
+    gap: 10px;  /* Space between cards */
+    justify-content: center;
+}
+
+.kitty-row .playing-card {
+    width: 100px;  /* Or whatever size your cards are */
+    height: auto;
+}
+
 .centered-form {
     position: absolute;
     top: 44%;
