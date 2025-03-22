@@ -165,12 +165,7 @@ $(document).ready(function () {
     }    
 
     function acceptTrump(player, card, trumpRound) {
-        const data = { player: player, trump_round: trumpRound };
-
-        
-        // Update kitty
-        kitty[0].faceup = false;
-        updateKittyDisplay();
+        const data = { trump_round: trumpRound };
 
         if (trumpRound === 1) {
             if (gameResponse.remaining_cards.includes(card)) {
@@ -180,6 +175,11 @@ $(document).ready(function () {
                 return;
             }
         } else if (trumpRound === 2) {
+        
+            // Update kitty by flipping up card
+            kitty[0].faceup = false;
+            updateKittyDisplay();
+
             data.suit = card;
         }        
         trumpRound = 1; // Reset the trump round to 1 after accepting trump
@@ -191,6 +191,12 @@ $(document).ready(function () {
             success: function (response) {
                 trumpSelected = true;
                 currentSuit = response.trump_suit;
+
+                if (trumpRound === 1) {
+                    kitty[0].faceup = false;
+                    kitty[0].card = response.discarded_card;
+                    updateKittyDisplay();
+                }
     
                 // Update UI with the new trump suit
                 updateTrumpDisplay(response.trump_suit);
@@ -205,42 +211,6 @@ $(document).ready(function () {
             }
         });
     }
-
-    // Handle accepting the trump card
-    $("#accept-trump-button").click(function () {
-        resetPlayerHandBeforeTrump(); // Ensure UI is clear before updating
-        
-        const currentPlayer = playerOrder[currentPlayerIndex];
-
-        $.ajax({
-            url: "/accept-trump/",
-            type: "POST",
-            data: { player: currentPlayer, card: gameResponse.remaining_cards[0] },
-            success: function (response) {
-                trumpSelected = true;
-                currentSuit = response.trump_suit;
-
-                // Update the trump suit display
-                updateTrumpDisplay(response.trump_suit);
-
-                // Update the player's hand in their rectangle
-                for (let card in response.updated_hand) {
-                    const cardContainer = $(positions[currentPlayer]);
-                    cardContainer.empty(); // Clear previous cards
-                    let newCard = response.updated_hand[card];
-                    console.log(newCard);
-                    let imgSrc = getCardImage(newCard);
-                    cardContainer.append(`<img src="${imgSrc}" class="playing-card" data-card="${newCard}" data-player="${player}">`);
-                }
-
-                // Show the final message
-                showFinalMessage(`${currentPlayer} accepted the trump card!`);
-            },
-            error: function (xhr) {
-                alert("An error occurred while accepting the trump card: " + xhr.responseText);
-            }
-        });
-    });
     
     function rejectTrump(player, trumpRound) {
         currentPlayerIndex++;

@@ -288,18 +288,9 @@ def accept_trump(request):
     if request.method == "POST":
         try:
             trump_round = request.POST.get("trump_round")
-            player_name = request.POST.get("player")
 
             if not trump_round:
                 return JsonResponse({"error": "Missing trump round data."}, status=400)
-            if not player_name:
-                return JsonResponse({"error": "Missing player data."}, status=400)
-            
-            # Fetch player
-            try:
-                player = Player.objects.get(name=player_name)
-            except Player.DoesNotExist:
-                return JsonResponse({"error": f"Player '{player_name}' does not exist."}, status=400)
 
             # Fetch latest game
             try:
@@ -333,39 +324,39 @@ def accept_trump(request):
                 except Card.DoesNotExist:
                     return JsonResponse({"error": f"Card '{card_info}' does not exist."}, status=400)
 
-                # Get player's current hand
-                player_hand = PlayedCard.objects.filter(player=player, hand=latest_hand)
+                # Get dealer's current hand
+                dealer_hand = PlayedCard.objects.filter(player=game.dealer, hand=latest_hand)
 
                 # Ensure player has space for a new card
-                if player_hand.count() >= 5:
+                if dealer_hand.count() >= 5:
                     # Find lowest non-trump card
                     def card_rank_value(c):
                         rank_order = ['9', '10', 'J', 'Q', 'K', 'A']
                         return rank_order.index(c.card.rank)
 
-                    non_trump_cards = [pc for pc in player_hand if pc.card.suit != suit]
-                    worst_card = min(non_trump_cards or player_hand, key=lambda c: card_rank_value(c))
+                    non_trump_cards = [pc for pc in dealer_hand if pc.card.suit != suit]
+                    worst_card = min(non_trump_cards or dealer_hand, key=lambda c: card_rank_value(c))
 
                     # Remove the worst card
-                    print(f"Discarding {worst_card.card.rank} of {worst_card.card.suit} from {player.name}")
+                    print(f"Discarding {worst_card.card.rank} of {worst_card.card.suit} from {game.dealer.name}")
                     worst_card.delete()
                 
                 # Ensure the card is not already in the player's hand
-                if PlayedCard.objects.filter(player=player, card=card, hand=latest_hand).exists():
+                if PlayedCard.objects.filter(player=game.dealer, card=card, hand=latest_hand).exists():
                     return JsonResponse({"error": "This card is already in the player's hand."}, status=400)
 
                 # Add the new trump card
                 PlayedCard.objects.create(
-                    player=player,
+                    player=game.dealer,
                     card=card,
                     hand=latest_hand,
-                    order=player_hand.count() + 1  # Ensure correct order
+                    order=dealer_hand.count() + 1  # Ensure correct order
                 )
 
                 # Retrieve updated hand
                 updated_hand = [
                     f"{pc.card.rank} of {pc.card.suit}"
-                    for pc in PlayedCard.objects.filter(player=player, hand=latest_hand)
+                    for pc in PlayedCard.objects.filter(player=game.dealer, hand=latest_hand)
                 ]
 
                 # Update the game's trump suit
@@ -374,7 +365,8 @@ def accept_trump(request):
 
                 return JsonResponse({
                     "trump_suit": suit,
-                    "updated_hand": updated_hand
+                    "updated_hand": updated_hand,
+                    "discarded_card": f"{worst_card.card.rank} of {worst_card.card.suit}"
                 })
 
             # Handle round 2 of trump selection
