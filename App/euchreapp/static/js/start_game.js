@@ -613,7 +613,7 @@ $(document).ready(function () {
                 }
 
                 // updateRemainingCards(); // Refresh remaining cards
-                revealKitty();
+                revealKitty(); // Reveal the kitty since round is over
             },
             error: function (xhr) {
                 alert("❌ Error starting round: " + xhr.responseText);
@@ -840,16 +840,33 @@ $(document).ready(function () {
         }
     
         tricks.forEach((trick) => {
+            player = "Player";
+            opponent1 = "Opponent1";
+            teammate = "Team Mate";
+            opponent2 = "Opponent2";
+
+            // Player order changes after each trick
+            const playerIndex = trick.players.indexOf(player); // Player
+            const opponent1Index = trick.players.indexOf(opponent1); // Opponent 1
+            const teammateIndex = trick.players.indexOf(teammate); // Teammate
+            const opponent2Index = trick.players.indexOf(opponent2); // Opponent 2
+
+            // Extract cards based on the player index
+            const playerCard = trick.cards[playerIndex];
+            const opponent1Card = trick.cards[opponent1Index];
+            const teammateCard = trick.cards[teammateIndex];
+            const opponent2Card = trick.cards[opponent2Index];
+
             // Extract players and cards
-            let player = trick.players[0]; // Player
-            let opponent1 = trick.players[1]; // Opponent 1
-            let teammate = trick.players[2]; // Teammate
-            let opponent2 = trick.players[3]; // Opponent 2
+            // let player = trick.players[0]; // Player
+            // let opponent1 = trick.players[1]; // Opponent 1
+            // let teammate = trick.players[2]; // Teammate
+            // let opponent2 = trick.players[3]; // Opponent 2
     
-            let playerCard = trick.cards[0]; // Player's card
-            let opponent1Card = trick.cards[1]; // Opponent 1's card
-            let teammateCard = trick.cards[2]; // Teammate's card
-            let opponent2Card = trick.cards[3]; // Opponent 2's card
+            // let playerCard = trick.cards[0]; // Player's card
+            // let opponent1Card = trick.cards[1]; // Opponent 1's card
+            // let teammateCard = trick.cards[2]; // Teammate's card
+            // let opponent2Card = trick.cards[3]; // Opponent 2's card
             let winner = trick.winner; // Trick Winner
     
             // Determine class for the winner cell

@@ -42,13 +42,13 @@ class Card():
     def euchre_rank(card, trump_suit, lead_suit=None):
         """ Assigns rank values based on Euchre hierarchy. """
         if card.is_right_bower(trump_suit):
-            return 20  # Right Bower (Highest)
+            return 25  # Right Bower (Highest)
         elif card.is_left_bower(trump_suit):
-            return 19  # Left Bower
+            return 24  # Left Bower
         if card.suit == trump_suit:
-            return 10 + ["9", "10", "Q", "K", "A"].index(card.rank)
+            return 15 + ["9", "10", "Q", "K", "A"].index(card.rank)
         if card.suit == lead_suit:
-            return 5 + ["9", "10", "J", "Q", "K", "A"].index(card.rank)
+            return 6 + ["9", "10", "J", "Q", "K", "A"].index(card.rank)
         return ["9", "10", "J", "Q", "K", "A"].index(card.rank)
     
 class PlayedCard():
@@ -271,6 +271,10 @@ class Bot(Player):
         """
         # TODO: Keep track of other players played cards - i.e. what trump are left
 
+        # If you only have one card, play it
+        if len(hand) == 1:
+            return hand[0]
+
         partner_called_trump = trump_caller == self.partner
         player_called_trump = trump_caller == self.name
         opponent_called_trump = not partner_called_trump and not player_called_trump # TODO: It can be useful to know which opponent called trump specifically as that can change the card to play
@@ -292,7 +296,10 @@ class Bot(Player):
 
         # Gather cards by suit
         trump_cards = self.get_trump_cards(hand, trump_suit)
-        lead_suit_cards = [played_card for played_card in hand if played_card.card.suit == lead_suit]
+        if lead_suit == trump_suit:
+            lead_suit_cards = trump_cards
+        else:
+            lead_suit_cards = [played_card for played_card in hand if played_card.card.suit == lead_suit and not played_card.card.is_left_bower(trump_suit)]
 
         # Get lowest card in hand
         lowest_card = min(hand, key=lambda x: Card.euchre_rank(x.card, trump_suit, lead_suit))
@@ -340,18 +347,19 @@ class Bot(Player):
                 return lowest_card
                 
         # Trump cards have been played
-        if is_partner_winning:
-            # Partner is winning with a trump card
-            return lowest_card
-        else:
-            # Opponent is winning with a trump card
-            winning_trump_cards = [card for card in trump_cards if card.card.rank > winning_card.card.rank]
-            if winning_trump_cards:
-                # Play the highest trump necessary to take the lead
-                return min(winning_trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
+        if trump_cards:
+            if is_partner_winning:
+                # Partner is winning with a trump card
+                return lowest_card
             else:
-                # Cannot win trick, so play lowest card # TODO: making a void could be more valuable than playing lowest card
-                return lowest_card           
+                # Opponent is winning with a trump card
+                winning_trump_cards = [card for card in trump_cards 
+                                    if Card.euchre_rank(card.card, trump_suit) > Card.euchre_rank(winning_card.card, trump_suit)]
+                if winning_trump_cards:
+                    # Play the highest trump necessary to take the lead
+                    return min(winning_trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
+        # Cannot win trick, so play lowest card # TODO: making a void could be more valuable than playing lowest card (dealer_discard?)      
+        return lowest_card  
 
     def choose_lead_card(self, hand, trump_suit, previous_cards, partner_called_trump, player_called_trump, opponent_called_trump):
         """

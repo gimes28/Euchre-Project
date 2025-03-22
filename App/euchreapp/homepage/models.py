@@ -246,7 +246,11 @@ class Player(models.Model):
 
         # Gather cards by suit
         trump_cards = self.get_trump_cards(hand, trump_suit)
-        lead_suit_cards = [card for card in hand if card.suit == lead_suit]
+        # If the lead suit is trump, get all trump cards, otherwise get all lead suit cards
+        if lead_suit == trump_suit:
+            lead_suit_cards = trump_cards
+        else:
+            lead_suit_cards = [card for card in hand if card.suit == lead_suit and not card.is_left_bower(trump_suit)]
 
         # Get lowest card in hand
         lowest_card = min(hand, key=lambda x: Card.euchre_rank(x, trump_suit, lead_suit))
@@ -265,11 +269,11 @@ class Player(models.Model):
                     return low_lead
                 else:
                     # If partner is not winning with a boss card, play highest card if you can win trick
-                    if high_lead.rank > winning_played_card.card.rank:
+                    if Card.euchre_rank(high_lead, trump_suit) > Card.euchre_rank(winning_played_card.card, trump_suit):
                         return high_lead
             else:
                 # Opponent is winning, so play highest card if you can win trick
-                if high_lead.rank > winning_played_card.card.rank:
+                if Card.euchre_rank(high_lead, trump_suit) > Card.euchre_rank(winning_played_card.card, trump_suit):
                     return high_lead
                 
             return low_lead
@@ -299,7 +303,7 @@ class Player(models.Model):
             return lowest_card
         else:
             # Opponent is winning with a trump card
-            winning_trump_cards = [card for card in trump_cards if card.rank > winning_played_card.card.rank]
+            winning_trump_cards = [card for card in trump_cards if Card.euchre_rank(card, trump_suit) > Card.euchre_rank(winning_played_card.card, trump_suit)]
             if winning_trump_cards:
                 # Play the highest trump necessary to take the lead
                 return min(winning_trump_cards, key=lambda x: Card.euchre_rank(x, trump_suit))
@@ -502,13 +506,13 @@ class Card(models.Model):
     def euchre_rank(card, trump_suit, lead_suit=None):
         """ Assigns rank values based on Euchre hierarchy. """
         if card.is_right_bower(trump_suit):
-            return 20  # Right Bower (Highest)
+            return 25  # Right Bower (Highest)
         elif card.is_left_bower(trump_suit):
-            return 19  # Left Bower
+            return 24  # Left Bower
         if card.suit == trump_suit:
-            return 10 + ["9", "10", "Q", "K", "A"].index(card.rank)
+            return 15 + ["9", "10", "Q", "K", "A"].index(card.rank)
         if card.suit == lead_suit:
-            return 5 + ["9", "10", "J", "Q", "K", "A"].index(card.rank)
+            return 6 + ["9", "10", "J", "Q", "K", "A"].index(card.rank)
         return ["9", "10", "J", "Q", "K", "A"].index(card.rank)
 
     @property
@@ -686,12 +690,16 @@ def evaluate_trick_winner(trump_suit, played_cards):
         return None
 
     lead_suit = played_cards[0].card.suit
-    left_bower_suit = "clubs" if trump_suit == "spades" else \
-                      "spades" if trump_suit == "clubs" else \
-                      "diamonds" if trump_suit == "hearts" else "hearts"
+
+    print(f"Evaluating trick winner")
+    print(f"Lead suit: {lead_suit}")
+    print(f"Trump suit: {trump_suit}")
+    for pc in played_cards:
+        print(f"Card: {pc}")
 
     # Find the highest-ranked card
     winning_card = max(played_cards, key=lambda pc: Card.euchre_rank(pc.card, trump_suit, lead_suit))
+    print(f"Winning card: {winning_card} and player: {winning_card.player}")
     return winning_card.player
 
 
@@ -885,13 +893,24 @@ def start_euchre_round(game, trump_caller):
     tricks_data = []  # Store all trick results
     previous_cards = []
 
+    # Left of the dealer leads the first trick
+    dealer_index = players.index(game.dealer)
+    trick_leader = players[(dealer_index + 1) % len(players)]
+
     # Play all 5 tricks in a loop
     for trick_number in range(5):
         trick_cards = []  # Cards played in this trick
         hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit or None)
 
+        # Whoever won the trick plays first
+        leader_index = players.index(trick_leader)
+        player_order = players[leader_index:] + players[:leader_index]
+
+        print(f"\nTrick number: {trick_number}")
+        print(f"Player order: {player_order}")
+
         # Players play in order
-        for player in players:
+        for player in player_order:
             card_to_play = player.determine_best_card(player_hands[player], hand.trump_suit, trick_cards, previous_cards, trump_caller)
             play_card(player, hand, card_to_play, player_hands, game)
             trick_cards.append(PlayedCard(player=player, hand=hand, card=card_to_play, order=len(trick_cards) + 1))
@@ -900,6 +919,9 @@ def start_euchre_round(game, trump_caller):
         trick_winner = evaluate_trick_winner(hand.trump_suit, trick_cards)
         hand.winner = trick_winner
         hand.save()
+
+        # Whoever won the trick leads the next trick
+        trick_leader = trick_winner
 
         # Assign trick points
         if trick_winner.team == 1:
