@@ -219,10 +219,6 @@ def deal_hand(request):
 
             hands, remaining_cards = result  # This line previously failed
 
-            # Debugging: Print hands and remaining cards
-            print(f"🔥 DEBUG: Hands dealt successfully: {hands}")
-            print(f"🔥 DEBUG: Remaining cards after dealing: {[f'{card.rank} of {card.suit}' for card in remaining_cards]}")
-
             # Prepare the response
             response = {
                 "hands": {

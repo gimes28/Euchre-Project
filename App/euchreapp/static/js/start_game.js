@@ -192,10 +192,20 @@ $(document).ready(function () {
                 trumpSelected = true;
                 currentSuit = response.trump_suit;
 
+                // Update and display the kitty after the dealer picks up and discards
                 if (trumpRound === 1) {
+                    // Update and display the kitty after the dealer picks up and discards
                     kitty[0].faceup = false;
                     kitty[0].card = response.discarded_card;
                     updateKittyDisplay();
+
+                    console.log("Dealer is:", dealer);
+                    console.log("Dealer equals Player:", dealer === "Player");
+                    // Update the Player's hand display if they are the dealer (they picked up the up card)
+                    if (dealer === "Player") {
+                        console.log("Updating Player's hand");
+                        updateDealerHand(dealer, response.updated_hand);
+                    }
                 }
     
                 // Update UI with the new trump suit
@@ -209,6 +219,16 @@ $(document).ready(function () {
             error: function (xhr) {
                 alert("Error accepting trump: " + xhr.responseText);
             }
+        });
+    }
+
+    function updateDealerHand(player, cards) {
+        const cardContainer = $(positions["Player"]);
+        cardContainer.empty(); // Clear previous cards
+
+        cards.forEach(card => {
+            let imgSrc = player === "Player" ? getCardImage(card) : getCardImage("Hidden");
+            cardContainer.append(`<img src="${imgSrc}" class="playing-card" data-card="${card}" data-player="${player}">`);
         });
     }
     
@@ -565,6 +585,9 @@ $(document).ready(function () {
                 gameResponse = response;
                 playerOrder = response.player_order;
                 currentPlayerIndex = 0;
+                
+                initializeKitty(response.remaining_cards);
+                displayDealtCards(response);
 
                 displayDealtCards(response);
                 updateDealerPosition(response);
