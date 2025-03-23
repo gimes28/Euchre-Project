@@ -697,9 +697,6 @@ def evaluate_trick_winner(trump_suit, played_cards):
     else:
         lead_suit = played_cards[0].card.suit
 
-    for pc in played_cards:
-        print(f"Card: {pc}")
-
     # Find the highest-ranked card
     winning_card = max(played_cards, key=lambda pc: Card.euchre_rank(pc.card, trump_suit, lead_suit))
     return winning_card.player
@@ -907,9 +904,6 @@ def start_euchre_round(game, trump_caller):
         # Whoever won the trick plays first
         leader_index = players.index(trick_leader)
         player_order = players[leader_index:] + players[:leader_index]
-
-        print(f"\nTrick number: {trick_number}")
-        print(f"Player order: {player_order}")
 
         # Players play in order
         for player in player_order:
