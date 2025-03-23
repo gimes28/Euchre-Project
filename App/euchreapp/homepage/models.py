@@ -692,17 +692,16 @@ def evaluate_trick_winner(trump_suit, played_cards):
     if not played_cards:
         return None
 
-    lead_suit = played_cards[0].card.suit
+    if played_cards[0].card.is_left_bower(trump_suit):
+        lead_suit = played_cards[0].card.next_suit()
+    else:
+        lead_suit = played_cards[0].card.suit
 
-    print(f"Evaluating trick winner")
-    print(f"Lead suit: {lead_suit}")
-    print(f"Trump suit: {trump_suit}")
     for pc in played_cards:
         print(f"Card: {pc}")
 
     # Find the highest-ranked card
     winning_card = max(played_cards, key=lambda pc: Card.euchre_rank(pc.card, trump_suit, lead_suit))
-    print(f"Winning card: {winning_card} and player: {winning_card.player}")
     return winning_card.player
 
 

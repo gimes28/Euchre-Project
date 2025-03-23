@@ -175,11 +175,6 @@ $(document).ready(function () {
                 return;
             }
         } else if (trumpRound === 2) {
-        
-            // Update kitty by flipping up card
-            kitty[0].faceup = false;
-            updateKittyDisplay();
-
             data.suit = card;
         }        
         trumpRound = 1; // Reset the trump round to 1 after accepting trump
@@ -192,20 +187,21 @@ $(document).ready(function () {
                 trumpSelected = true;
                 currentSuit = response.trump_suit;
                 dealer = response.dealer;
+                discarded_card = response.discarded_card;
+                updated_hand = response.updated_hand;
 
                 // Update and display the kitty after the dealer picks up and discards
-                if (trumpRound === 1) {
-                    // Update and display the kitty after the dealer picks up and discards
-                    kitty[0].faceup = false;
+                kitty[0].faceup = false;
+                if (response.discarded_card) {
                     kitty[0].card = response.discarded_card;
-                    updateKittyDisplay();
-
-                    // Update the Player's hand display if they are the dealer (they picked up the up card)
-                    if (dealer === "Player") {
-                        updateDealerHand(dealer, response.updated_hand);
-                    }
                 }
-    
+                updateKittyDisplay();
+
+                // Update the Player's hand display if they are the dealer (they picked up the up card)
+                if (updated_hand && dealer === "Player") {
+                    updateDealerHand(dealer, updated_hand);
+                }
+
                 // Update UI with the new trump suit
                 updateTrumpDisplay(response.trump_suit);
     
@@ -258,6 +254,7 @@ $(document).ready(function () {
 
             // Update kitty
             kitty[0].faceup = false;
+            
             updateKittyDisplay();
             
             // Give trump dialog box, but this time player can select any suit except for the upCardSuit
@@ -448,6 +445,8 @@ $(document).ready(function () {
     function updateKittyDisplay() {
         const container = document.getElementById("remaining-cards-list");
         container.innerHTML = "";
+
+        console.log("kitty: ", kitty)
 
         kitty.forEach(item => {
             const cardSrc = item.faceup ? getCardImage(item.card) : getCardImage("Hidden");
