@@ -642,8 +642,6 @@ $(document).ready(function () {
                 
                 initializeKitty(response.remaining_cards);
                 displayDealtCards(response);
-
-                displayDealtCards(response);
                 updateDealerPosition(response);
 
                 // ✅ Show the trump card selection dialog with the first remaining card
