@@ -275,8 +275,8 @@ class Bot(Player):
         if len(hand) == 1:
             return hand[0]
 
-        partner_called_trump = trump_caller == self.partner
-        player_called_trump = trump_caller == self.name
+        partner_called_trump = trump_caller.name == self.partner
+        player_called_trump = trump_caller.name == self.name
         opponent_called_trump = not partner_called_trump and not player_called_trump # TODO: It can be useful to know which opponent called trump specifically as that can change the card to play
 
         # Check if you are leading
@@ -722,7 +722,7 @@ class MonteCarloSimulation():
 
             print(f"  Win Rate: {win_rate:.2f}%")
             print(f"  First Round Win Rate: {first_round_rate:.2f}%")
-            print(f"  First Round Win Rate: {second_round_rate:.2f}%")
+            print(f"  Second Round Win Rate: {second_round_rate:.2f}%")
             print(f"  Euchre Rate: {euchre_rate:.2f}%")
             print(f"  Avg Points Per Call: {avg_points_per_call:.2f}") 
             print(f"  Call Trump as Dealer Rate: {call_trump_as_dealer:.2f}%")
@@ -740,7 +740,8 @@ class MonteCarloSimulation():
         """
 
         previous_cards = []
-        seat_tricks = [0, 0, 0, 0]
+        team1_tricks = 0
+        team2_tricks = 0
 
         # Create copy of players list to keep track of player order
         play_order = players[:]
@@ -757,23 +758,20 @@ class MonteCarloSimulation():
                 played_cards.append(card_to_play)
 
             # Determine the winner of the trick
-            winner_name = self.evaluate_trick_winner(trump_suit, played_cards)
-            winner = next((bot for bot in play_order if bot.name == winner_name), None)
+            winner = self.evaluate_trick_winner(trump_suit, played_cards)
 
             # Add the played cards to the previous cards
             previous_cards.extend(played_cards)
 
             # Add 1 to the number of tricks the winner has in the original player list
-            original_winner_index = players.index(winner)
-            seat_tricks[original_winner_index] += 1
+            if winner.team == 1:
+                team1_tricks += 1
+            elif winner.team == 2:
+                team2_tricks += 1
 
             # Rotate the players list so that the winner leads the next trick
             winner_idx = play_order.index(winner)
             play_order = play_order[winner_idx:] + play_order[:winner_idx]
-
-        # Calculate the points for each team
-        team1_tricks = seat_tricks[0] + seat_tricks[2]
-        team2_tricks = seat_tricks[1] + seat_tricks[3]
 
         return self.evaluate_points(team1_tricks, team2_tricks, trump_maker)
 
@@ -782,11 +780,14 @@ class MonteCarloSimulation():
         Evaluates the winner of the trick
         """
         # Get the lead suit
-        lead_suit = played_cards[0].card.suit
+        if played_cards[0].card.is_left_bower(trump_suit):
+            lead_suit = played_cards[0].card.next_suit()
+        else:
+            lead_suit = played_cards[0].card.suit
 
         winning_card = max(played_cards, key=lambda pc: Card.euchre_rank(pc.card, trump_suit, lead_suit))
 
-        return winning_card.player.name
+        return winning_card.player
 
     def evaluate_points(self, team1_tricks, team2_tricks, trump_maker):
         """
@@ -802,7 +803,7 @@ class MonteCarloSimulation():
 
         if trump_maker.team == 1:
             trump_calling_team = 1
-        else:
+        elif trump_maker.team == 2:
             trump_calling_team = 2
 
         if team1_tricks >= 3:
