@@ -198,8 +198,8 @@ $(document).ready(function () {
                 updateKittyDisplay();
 
                 // Update the Player's hand display if they are the dealer (they picked up the up card)
-                if (updated_hand && dealer === "Player") {
-                    updateDealerHand(dealer, updated_hand);
+                if (updated_hand) {
+                    updatePlayerHand("Player", updated_hand);
                 }
 
                 // Update UI with the new trump suit
@@ -216,7 +216,7 @@ $(document).ready(function () {
         });
     }
 
-    function updateDealerHand(player, cards) {
+    function updatePlayerHand(player, cards) {
         const cardContainer = $(positions["Player"]);
         cardContainer.empty(); // Clear previous cards
 
@@ -337,8 +337,9 @@ $(document).ready(function () {
         $("#accept-trump-button").hide();
         $("#reject-trump-button").hide();
         $("#ok-modal-button").hide();
-        $("#modal-round-button").show();
+        $("#ok-round-button").hide();
         $("#ok-trump-button").hide();
+        $("#modal-round-button").show();
 
         $("#modal-round-button").off("click").on("click", function () {
             $("#modal-round").fadeOut();

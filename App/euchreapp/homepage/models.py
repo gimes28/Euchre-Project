@@ -224,6 +224,9 @@ class Player(models.Model):
         """
         Determines the best card to play in a trick
         """
+        
+        if len(hand) == 1:
+            return hand[0]
 
         partner_called_trump = trump_caller.name == self.partner
         player_called_trump = trump_caller.name == self.name
