@@ -643,45 +643,10 @@ class MonteCarloSimulation():
             print(f"Team 2 calls: {team2_calls}")
             team2_win_rate = team2_wins / team2_calls
         else:
-            self.total_euchres[trump_maker.name] += 1
-            self.team_euchres[trump_maker.team] += 1
+            team2_win_rate = 0
 
-    def display_results(self, num_simulations):
-        print("\n--- Results ---")
-        print(f"Total Simulations: {num_simulations}")
-
-        for bot in self.total_calls.keys():
-            print(f"\n{bot}:")
-            #print(f"  Total Calls: {self.total_calls[bot]}")
-            #print(f"  Total Wins: {self.total_wins[bot]}")
-            #print(f"  Total Euchres: {self.total_euchres[bot]}")
-            #print(f"  First Round Calls: {self.calls_round1[bot]} - Wins: {self.wins_round1[bot]}")
-            #print(f"  Second Round Calls: {self.calls_round2[bot]} - Wins: {self.wins_round2[bot]}")
-            #print(f"  Dealer Count: {self.dealer_count[bot]}")
-            #print(f"  Called Trump as Dealer: {self.dealer_calls[bot]}")
-
-            # Calculate percentages
-            win_rate = (self.total_wins[bot] / self.total_calls[bot]) * 100 if self.total_calls[bot] > 0 else 0
-            first_round_rate = (self.wins_round1[bot] / self.calls_round1[bot]) * 100 if self.calls_round1[bot] > 0 else 0
-            second_round_rate = (self.wins_round2[bot] / self.calls_round2[bot]) * 100 if self.calls_round2[bot] > 0 else 0
-            euchre_rate = (self.total_euchres[bot] / self.total_calls[bot]) * 100 if self.total_calls[bot] > 0 else 0
-            avg_points_per_call = self.total_points[bot] / self.total_calls[bot] if self.total_calls[bot] > 0 else 0
-            call_trump_as_dealer = (self.dealer_calls[bot] / self.dealer_count[bot]) * 100 if self.dealer_count[bot] > 0 else 0
-            avg_dealer_points = self.dealer_points[bot] / self.dealer_calls[bot]if self.dealer_calls[bot] > 0 else 0
-
-            print(f"  Win Rate: {win_rate:.2f}%")
-            print(f"  First Round Win Rate: {first_round_rate:.2f}%")
-            print(f"  Second Round Win Rate: {second_round_rate:.2f}%")
-            print(f"  Euchre Rate: {euchre_rate:.2f}%")
-            print(f"  Avg Points Per Call: {avg_points_per_call:.2f}") 
-            print(f"  Call Trump as Dealer Rate: {call_trump_as_dealer:.2f}%")
-            print(f"  Avg Points When Calling Trump as Dealer: {avg_dealer_points:.2f}")
-
-        for team in (1, 2):
-            print(f"\nTeam {team}:")
-            print(f"  Total Calls: {self.team_calls[team]}")
-            print(f"  Total Wins: {self.team_wins[team]}")
-            print(f"  Total Euchres: {self.team_euchres[team]}")
+        print(f"Team 1 win rate after {num_simulations} simulations: {team1_win_rate}")
+        print(f"Team 2 win rate after {num_simulations} simulations: {team2_win_rate}")
 
     def play_hand(self, dealt_hands, players, trump_suit, trump_maker):
         """
