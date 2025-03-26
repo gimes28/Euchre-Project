@@ -146,7 +146,7 @@ $(document).ready(function () {
         $(`.suit-button[data-suit="${upCardSuit}"]`).prop("disabled", true);
 
         // Disable the pass button if player is the dealer
-        if (player === dealer) {
+        if (player === gameResponse.dealer) {
             $("#reject-trump-button").prop("disabled", true);
         }
 
