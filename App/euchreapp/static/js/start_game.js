@@ -352,6 +352,11 @@ $(document).ready(function () {
 
     // Start the game
     $("#start-game-button").click(function () {
+
+        // Hide the start game button
+        $("#start-game-button").hide();
+        $("#start-game-form").hide();
+
         $.ajax({
             url: "/start-game/", // Matches the URL in urls.py
             type: "POST",
