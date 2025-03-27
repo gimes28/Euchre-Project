@@ -330,7 +330,7 @@ def accept_trump(request):
                 dealer_hand.append(card)
                 
                 # updated_dealer_hand = game.dealer.dealer_pickup(dealer_hand, card)
-                discarded_card = game.dealer.dealer_discard(dealer_hand, card.suit)
+                discarded_card = game.dealer.get_worst_card(dealer_hand, card.suit)
                 dealer_hand.remove(discarded_card)
 
                 dealer_played_cards.delete()

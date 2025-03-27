@@ -526,6 +526,10 @@ class MonteCarloSimulation():
         team1_calls = 0
         team2_calls = 0
 
+        # Track number of times each team marches
+        team1_marches = 0
+        team2_marches = 0
+
         for _ in range(num_simulations):
             # Make and shuffle deck
             suits = ["hearts", "diamonds", "clubs", "spades"]
@@ -567,7 +571,7 @@ class MonteCarloSimulation():
 
                             dealt_hands[dealer.name].append(up_card)
                             
-                            discarded_card = dealer.dealer_discard(dealt_hands[dealer.name], up_card.suit)
+                            discarded_card = dealer.get_worst_card(dealt_hands[dealer.name], up_card.suit)
                             dealt_hands[dealer.name].remove(discarded_card)
                         else:
                             calls_round2[bot.name] += 1
@@ -586,10 +590,15 @@ class MonteCarloSimulation():
                 team1_calls += 1
                 if team1_points > team2_points:
                     team1_wins += 1
+                    if team1_points == 2:
+                        team1_marches += 1
             else:
                 team2_calls += 1
                 if team2_points > team1_points:
                     team2_wins += 1
+                    if team2_points == 2:
+                        team2_marches += 1
+
 
         # Calculate probabilities
         call_rates_round1 = {
@@ -626,25 +635,32 @@ class MonteCarloSimulation():
         if team1_calls != 0:
             print(f"Team 1 wins: {team1_wins}")
             print(f"Team 1 calls: {team1_calls}")
-            team1_win_rate = team1_wins / team1_calls
+            team1_win_rate = (team1_wins / team1_calls) * 100
         else:
             team1_win_rate = 0
         if team2_calls != 0:
             print(f"Team 2 wins: {team2_wins}")
             print(f"Team 2 calls: {team2_calls}")
-            team2_win_rate = team2_wins / team2_calls
+            team2_win_rate = (team2_wins / team2_calls) * 100
         else:
             team2_win_rate = 0
 
-        print(f"Team 1 win rate after {num_simulations} simulations: {team1_win_rate}")
-        print(f"Team 2 win rate after {num_simulations} simulations: {team2_win_rate}")
+        print(f"Team 1 win rate after {num_simulations} simulations: {team1_win_rate}%")
+        print(f"Team 2 win rate after {num_simulations} simulations: {team2_win_rate}%")
+
+        if team1_marches != 0:
+            team1_marches_rate = (team1_marches / team1_calls) * 100
+            print(f"Team 1 marches: {team1_marches_rate}%")
+        if team2_marches != 0:
+            team2_marches_rate = (team2_marches / team2_calls) * 100
+            print(f"Team 2 marches: {team2_marches_rate}%")
 
     def play_hand(self, dealt_hands, players, trump_suit, trump_maker):
         """
         Plays a hand of Euchre
         """
 
-        previous_cards = []
+        previous_tricks = {}
         team1_tricks = 0
         team2_tricks = 0
 
@@ -656,7 +672,7 @@ class MonteCarloSimulation():
 
             # Each player plays a card
             for bot in play_order:
-                card_to_play = bot.determine_best_card(dealt_hands[bot.name], trump_suit, played_cards, previous_cards, trump_maker)
+                card_to_play = bot.determine_best_card(dealt_hands[bot.name], trump_suit, played_cards, previous_tricks, trump_maker)
 
                 dealt_hands[bot.name].remove(card_to_play)
 
@@ -666,7 +682,7 @@ class MonteCarloSimulation():
             winner = self.evaluate_trick_winner(trump_suit, played_cards)
 
             # Add the played cards to the previous cards
-            previous_cards.extend(played_cards)
+            previous_tricks[trick_number] = played_cards
 
             # Add 1 to the number of tricks the winner has in the original player list
             if winner.team == 1:

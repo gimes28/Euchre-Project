@@ -878,7 +878,7 @@ def start_euchre_round(game, trump_caller):
     team1_tricks = 0  # Player + Bot2
     team2_tricks = 0  # Bot1 + Bot3
     tricks_data = []  # Store all trick results
-    previous_cards = []
+    previous_tricks = {} # Key: trick number, value: list of cards played in that trick
 
     # Left of the dealer leads the first trick
     dealer_index = players.index(game.dealer)
@@ -886,9 +886,6 @@ def start_euchre_round(game, trump_caller):
 
     # Play all 5 tricks in a loop
     for trick_number in range(5):
-        print(f"Previous cards: {previous_cards}")
-        print(f"Previous cards length: {len(previous_cards)}")
-
         trick_cards = []  # Cards played in this trick
         hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit or None)
 
@@ -898,7 +895,7 @@ def start_euchre_round(game, trump_caller):
 
         # Players play in order
         for player in player_order:
-            card_to_play = player.determine_best_card(player_hands[player], hand.trump_suit, trick_cards, previous_cards, trump_caller)
+            card_to_play = player.determine_best_card(player_hands[player], hand.trump_suit, trick_cards, previous_tricks, trump_caller)
             play_card(player, hand, card_to_play, player_hands, game)
             trick_cards.append(PlayedCard(player=player, hand=hand, card=card_to_play, order=len(trick_cards) + 1))
 
@@ -916,7 +913,7 @@ def start_euchre_round(game, trump_caller):
         else:
             team2_tricks += 1
 
-        previous_cards.extend(trick_cards)
+        previous_tricks[trick_number + 1] = trick_cards
 
         # Store trick results
         tricks_data.append({

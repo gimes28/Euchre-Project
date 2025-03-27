@@ -36,7 +36,7 @@ class BotLogic:
                 temp_hand.append(up_card)
 
                 # Discard a card
-                discarded_card = self.dealer_discard(temp_hand, up_card.suit)
+                discarded_card = self.get_worst_card(temp_hand, up_card.suit)
                 temp_hand.remove(discarded_card)
 
                 hand_score = self.evaluate_hand(temp_hand, trump_suit)
@@ -220,10 +220,13 @@ class BotLogic:
         
     #     return hand[0]
 
-    def determine_best_card(self, hand, trump_suit, played_cards, previous_cards, trump_caller):
+    def determine_best_card(self, hand, trump_suit, played_cards, previous_tricks, trump_caller):
         """
         Determines the best card to play in a trick
         """
+
+        if len(hand) == 1:
+            return hand[0]
 
         partner_called_trump = trump_caller.name == self.partner
         player_called_trump = trump_caller.name == self.name
@@ -232,7 +235,7 @@ class BotLogic:
         # Check if you are leading
         if not played_cards:
             # Decide what card to lead
-            return self.choose_lead_card(hand, trump_suit, previous_cards, partner_called_trump, player_called_trump, opponent_called_trump)
+            return self.choose_lead_card(hand, trump_suit, previous_tricks, partner_called_trump, player_called_trump, opponent_called_trump)
         
         # Not leading, so get suit that was lead
         if played_cards[0].card.is_left_bower(trump_suit):
@@ -267,7 +270,7 @@ class BotLogic:
                 if player_is_last_to_play:
                     # Partner already has the trick won, so play lowest card
                     return low_lead
-                elif self.is_boss_card(winning_played_card.card, previous_cards, trump_suit):
+                elif self.is_boss_card(winning_played_card.card, previous_tricks, trump_suit):
                     # If partner is winning with a boss card, play lowest card
                     return low_lead
                 else:
@@ -289,7 +292,7 @@ class BotLogic:
                 if is_partner_winning:
                     if player_is_last_to_play:
                         return lowest_card
-                    elif not self.is_boss_card(winning_played_card.card, previous_cards, trump_suit):
+                    elif not self.is_boss_card(winning_played_card.card, previous_tricks, trump_suit):
                         # Partner is winning, but not with a good card, so play small trump
                         return small_trump
                     return lowest_card
@@ -314,23 +317,36 @@ class BotLogic:
                 # Cannot win trick, so play lowest card # TODO: making a void could be more valuable than playing lowest card
                 return lowest_card  
 
-    def choose_lead_card(self, hand, trump_suit, previous_cards, partner_called_trump, player_called_trump, opponent_called_trump):
+    def choose_lead_card(self, hand, trump_suit, previous_tricks, partner_called_trump, player_called_trump, opponent_called_trump):
         """
         Determines the best card to lead with
         """
         trump_cards = self.get_trump_cards(hand, trump_suit)
 
         # Get all cards that are the highest card in the suit remaining
-        boss_cards = self.get_boss_cards_in_hand(hand, previous_cards, trump_suit)
-        non_trump_boss = [card for card in boss_cards if card.suit != trump_suit]
+        boss_cards = self.get_boss_cards_in_hand(hand, previous_tricks, trump_suit)
+        non_trump_boss = [card for card in boss_cards if card.suit != trump_suit and not card.is_left_bower(trump_suit)]
+        have_highest_trump = self.has_boss_card(hand, trump_suit, previous_tricks, trump_suit)
+        trump_was_led_before = any((trick_cards[0].card.suit == trump_suit or trick_cards[0].card.is_left_bower(trump_suit)) for trick_cards in previous_tricks.values())
+
+        # If you have highest trump card and a offsuit boss card, lead the trump then the boss card
+        if have_highest_trump and non_trump_boss:
+            if player_called_trump or partner_called_trump or (opponent_called_trump and trump_was_led_before):
+                return max(trump_cards, key=lambda x: BotLogic.euchre_rank(x, trump_suit))
+        
+        # On second to last trick, if you have one trump and one offsuit, lead the offsuit
+        if len(previous_tricks) == 3 and len(hand) == 2:
+            if len(trump_cards) == 1:
+                return min(hand, key=lambda x: BotLogic.euchre_rank(x, trump_suit))
 
         # Lead strong if partner called trump
         if partner_called_trump and trump_cards:
-            return max(trump_cards, key=lambda x: BotLogic.euchre_rank(x, trump_suit))
+            # Do not lead a trump card if trump has already been led in a previous trick
+            if not trump_was_led_before or (len(trump_cards) > 1 and non_trump_boss):
+                return max(trump_cards, key=lambda x: BotLogic.euchre_rank(x, trump_suit))
 
         # If you called trump and have highest trump, lead it
         if player_called_trump:
-            have_highest_trump = self.has_boss_card(hand, trump_suit, previous_cards, trump_suit)
             if have_highest_trump:
                 return max(trump_cards, key=lambda x: BotLogic.euchre_rank(x, trump_suit))
             elif len(trump_cards) > 1:
@@ -344,42 +360,41 @@ class BotLogic:
                 return min(hand, key=lambda x: BotLogic.euchre_rank(x, trump_suit))
             
         # Lead highest off suit if it is a boss card
-        if boss_cards:
-            if non_trump_boss:
-                return max(non_trump_boss, key=lambda x: BotLogic.euchre_rank(x, trump_suit))
+        if non_trump_boss:
+            return max(non_trump_boss, key=lambda x: BotLogic.euchre_rank(x, trump_suit))
 
-        # Otherwise, simply lead lowest card
-        return min(hand, key=lambda x: BotLogic.euchre_rank(x, trump_suit))
+        # Otherwise, create void is possible or lead lowest card
+        return self.get_worst_card(hand, trump_suit)
 
-    def get_boss_cards_in_hand(self, hand, previous_cards, trump_suit):
+    def get_boss_cards_in_hand(self, hand, previous_tricks, trump_suit):
         """
         Determines all boss cards in hand
         """
         boss_cards = []
         for card in hand:
-            if self.is_boss_card(card, previous_cards, trump_suit):
+            if self.is_boss_card(card, previous_tricks, trump_suit):
                 boss_cards.append(card)
         return boss_cards
     
-    def get_boss_card(self, suit, previous_cards, is_trump=False):
+    def get_boss_card(self, suit, previous_tricks, is_trump=False):
         """
         Determines the highest card of the highest rank remaining in the suit
         """
         card_ranks = ["A", "K", "Q", "J", "10", "9"]
 
         if is_trump:
-            # temp_card = Card.objects.get(rank="J", suit=suit)
+            all_previous_cards = [card for trick in previous_tricks.values() for card in trick]
             # Deal with bowers
-            if not any(played_card.card.is_right_bower(suit) for played_card in previous_cards):
+            if not any(played_card.card.is_right_bower(suit) for played_card in all_previous_cards):
                 return "J", suit
-            elif not any(played_card.card.is_left_bower(suit) for played_card in previous_cards):
+            elif not any(played_card.card.is_left_bower(suit) for played_card in all_previous_cards):
                 return "J", BotLogic.SUIT_PAIRS[suit] # Get left bower suit
 
             # Both bowers have been played already    
             card_ranks.remove("J")
 
         # Get all previous cards of the relevant suit
-        relevant_previous_cards = [card for card in previous_cards if card.card.suit == suit]
+        relevant_previous_cards = [card for trick_cards in previous_tricks.values() for card in trick_cards if card.card.suit == suit]
 
         for card in relevant_previous_cards:
             if card.card.rank in card_ranks:
@@ -412,12 +427,12 @@ class BotLogic:
     def get_trump_cards(self, hand, trump_suit):
         return [card for card in hand if card.suit == trump_suit or card.is_left_bower(trump_suit)]
 
-    def dealer_discard(self, dealer_hand, trump_suit):
+    def get_worst_card(self, hand, trump_suit):
         """
         Choose a card to discard based on creating a suit void if possible
         """
-        trump_cards = self.get_trump_cards(dealer_hand, trump_suit)
-        non_trump_cards = [card for card in dealer_hand if card not in trump_cards]
+        trump_cards = self.get_trump_cards(hand, trump_suit)
+        non_trump_cards = [card for card in hand if card not in trump_cards]
 
         if not non_trump_cards:
             # Hand is all trump cards, so discard lowest trump card
