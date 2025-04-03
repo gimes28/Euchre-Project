@@ -40,40 +40,81 @@ class BotLogic:
                 temp_hand.remove(discarded_card)
 
                 hand_score = self.evaluate_hand(temp_hand, trump_suit)
-                # print(f"Dealer {self.name} hand score: {hand_score}")
             else:
                 hand_score = self.evaluate_hand(hand, trump_suit)
-                # print(f"Player {self.name} hand score: {hand_score}")
 
             first_round_position_thresholds = {
-                'first': 0.42,
-                'second': 0.35,
-                'third': 0.44,
-                'dealer': 0.375
+                'first': {
+                    'normal': 0.33,
+                    'loner': 0.51
+                },
+                'second': {
+                    'normal': 0.225,
+                    'loner': 0.451
+                },
+                'third': {
+                    'normal': 0.355,
+                    'loner': 0.525
+                },
+                'dealer': {
+                    'normal': 0.26,
+                    'loner': 0.47
+                }
             }
 
             threshold = first_round_position_thresholds[position]
+            # Go alone if hand is strong enough. However, if the up card is the right bower, first and third seat should not go alone
+            will_go_alone = hand_score >= threshold['loner'] and (up_card.rank != 'J' or position not in ['first', 'third'])
+
+            decision = trump_suit if hand_score >= threshold['normal'] else 'pass'
+
+            # if position == 'first' and 0.4 <= hand_score <= 0.6:
+            #     print(f"{position} seat (round 1):{decision} with hand (up card: {up_card}): (HAND SCORE: {hand_score})\n {' '.join([str(card) for card in temp_hand])} ({will_go_alone})")
             
-            return trump_suit if hand_score >= threshold else 'pass'
+            return trump_suit if hand_score >= threshold['normal'] else 'pass', will_go_alone
         
         if trump_round == "2":
 
             second_round_thresholds = {
                 'first': {
-                    'next': 0.275,
-                    'reverse': 0.4
+                    'next': {
+                        'normal': 0.2,
+                        'loner': 0.45
+                    },
+                    'reverse': {
+                        'normal': 0.315,
+                        'loner': 0.48
+                    }
                 },
                 'second': {
-                    'next': 0.45,
-                    'reverse': 0.275
+                    'next': {
+                        'normal': 0.315,
+                        'loner': 0.48
+                    },
+                    'reverse': {
+                        'normal': 0.2,
+                        'loner': 0.45
+                    }
                 },
                 'third': {
-                    'next': 0.3,
-                    'reverse': 0.375
+                    'next': {
+                        'normal': 0.23,
+                        'loner': 0.465
+                    },
+                    'reverse': {
+                        'normal': 0.305,
+                        'loner': 0.485
+                    }
                 },
                 'dealer': {
-                    'next': 0.35,
-                    'reverse': 0.25
+                    'next': {
+                        'normal': 0.35,
+                        'loner': 0.46
+                    },
+                    'reverse': {
+                        'normal': 0.3,
+                        'loner': 0.45
+                    }
                 }
             }
 
@@ -84,37 +125,57 @@ class BotLogic:
 
             seat_thresholds = second_round_thresholds[position]
 
-            # TODO: Do not just choose next suit if greater than threshold, also consider reverse suit (Maybe check how much higher the difference between the threshold and the score is)
-
             next_suit_score = self.evaluate_hand(hand, next_suit)
             reverse_suit_score_1 = self.evaluate_hand(hand, reverse_suits[0])
             reverse_suit_score_2 = self.evaluate_hand(hand, reverse_suits[1])
+
+            decision = 'pass'
+            will_go_alone = False
             
             if self.name == dealer.name:
+                next_margin = next_suit_score - seat_thresholds['next']['normal']
+                reverse_margin_1 = reverse_suit_score_1 - seat_thresholds['reverse']['normal']
+                reverse_margin_2 = reverse_suit_score_2 - seat_thresholds['reverse']['normal']
+
                 options = [
-                    (next_suit, next_suit_score),
-                    (reverse_suits[0], reverse_suit_score_1),
-                    (reverse_suits[1], reverse_suit_score_2)
+                    (next_suit, next_margin, next_suit_score >= seat_thresholds['next']['loner']),
+                    (reverse_suits[0], reverse_margin_1, reverse_suit_score_1 >= seat_thresholds['reverse']['loner']),
+                    (reverse_suits[1], reverse_margin_2, reverse_suit_score_2 >= seat_thresholds['reverse']['loner'])
                 ]
 
-                best_suit, _ = max(options, key=lambda x: x[1])
-                return best_suit
+                best_option = max(options, key=lambda x: x[1])
+                decision = best_option[0]
+                will_go_alone = best_option[2]
 
-            should_call_next = next_suit_score >= seat_thresholds['next']
-            should_call_reverse = reverse_suit_score_1 >= seat_thresholds['reverse'] or reverse_suit_score_2 >= seat_thresholds['reverse']
+            else:
+                should_call_next = next_suit_score >= seat_thresholds['next']['normal']
+                should_go_alone_next = next_suit_score >= seat_thresholds['next']['loner']
+                should_call_reverse = reverse_suit_score_1 >= seat_thresholds['reverse']['normal'] or reverse_suit_score_2 >= seat_thresholds['reverse']['normal']
+                should_go_alone_reverse = reverse_suit_score_1 >= seat_thresholds['reverse']['loner'] or reverse_suit_score_2 >= seat_thresholds['reverse']['loner']
 
-            # If all suits are higher than threshold, choose the suit that is greater than the threshold by the most
-            if should_call_next and should_call_reverse:
-                if next_suit_score - seat_thresholds['next'] >= reverse_suit_score_1 - seat_thresholds['reverse'] or reverse_suit_score_2 - seat_thresholds['reverse']:
-                    return next_suit
-                else:
-                    return reverse_suits[0] if reverse_suit_score_1 >= reverse_suit_score_2 else reverse_suits[1]
-            elif should_call_next:
-                return next_suit
-            elif should_call_reverse:
-                return reverse_suits[0] if reverse_suit_score_1 >= reverse_suit_score_2 else reverse_suits[1]
+                # If all suits are higher than threshold, choose the suit that is greater than the threshold by the most
+                if should_call_next and should_call_reverse:
+                    next_margin = next_suit_score - seat_thresholds['next']['normal']
+                    reverse_margin_1 = reverse_suit_score_1 - seat_thresholds['reverse']['normal']
+                    reverse_margin_2 = reverse_suit_score_2 - seat_thresholds['reverse']['normal']
+
+                    if next_margin >= reverse_margin_1 and next_margin >= reverse_margin_2:
+                        decision = next_suit
+                        will_go_alone = should_go_alone_next
+                    else:
+                        decision = reverse_suits[0] if reverse_suit_score_1 >= reverse_suit_score_2 else reverse_suits[1]
+                        will_go_alone = should_go_alone_reverse
+                elif should_call_next:
+                    decision = next_suit
+                    will_go_alone = should_go_alone_next
+                elif should_call_reverse:
+                    decision = reverse_suits[0] if reverse_suit_score_1 >= reverse_suit_score_2 else reverse_suits[1]
+                    will_go_alone = should_go_alone_reverse
             
-            return 'pass'
+            # if position == 'dealer':
+            #     print(f"{position} seat (round {trump_round}): {decision} with hand (cannot call {up_card.suit}): (SCORES - next ({next_suit}): {next_suit_score:.3f}, {reverse_suits[0]}: {reverse_suit_score_1:.3f}, {reverse_suits[1]}: {reverse_suit_score_2:.3f})\n {' '.join([str(card) for card in hand])} ({will_go_alone})")
+            
+            return decision, will_go_alone
         
     def get_seat_position(self, player_order):
         """
@@ -131,8 +192,8 @@ class BotLogic:
         Evaluates the strength of the hand based on the trump suit, aces, and suit voids, multiplying each by the strategy weights
         """
         strategy_weights = {
-            'trump_cards': 0.5,
-            'off_aces': 0.4,
+            'trump_cards': 0.7,
+            'off_aces': 0.2,
             'num_suits': 0.1
             # 'seat_position': 0.2
         }
@@ -159,53 +220,119 @@ class BotLogic:
         Evaluates the strength of the trump cards in the hand by adding their values together and normalizing to 0-1
         """
         # TODO: King could be a boss card (basically an Ace) if an ace was the up card and turned down, so should be evaluated differently (Same with Jacks if a bower was turned down the JA are top two, not JJ)
-        # TODO: Dealer should be evaluated differently: you pick up the up card and discard so hand should evaluated differently
 
-        trump_sum = 0
+        trump_cards = self.get_trump_cards(hand, trump_suit)
 
-        for card in hand:
+        trump_ranks = {"right": 1.0, "left": 0.9, "A": 0.8, "K": 0.7, "Q": 0.6, "10": 0.575, "9": 0.55}
+
+        trump_score = 0
+        has_right_bower = False
+        has_left_bower = False
+
+        for card in trump_cards:
             if card.is_right_bower(trump_suit):
-                trump_sum += 1
+                trump_score += trump_ranks["right"]
+                has_right_bower = True
             elif card.is_left_bower(trump_suit):
-                trump_sum += 0.9
+                trump_score += trump_ranks["left"]
+                has_left_bower = True
             elif card.suit == trump_suit:
-                trump_ranks = {"A": 0.8, "K": 0.7, "Q": 0.6, "10": 0.5, "9": 0.4}
-                trump_sum += trump_ranks[card.rank]
+                trump_score += trump_ranks[card.rank]
 
-        return trump_sum / 4 # Normalize value to 0-1 (max score is 4)
+        multiplier = 1.0
+        num_trump = len(trump_cards)
+
+        if num_trump == 3:
+            multiplier = 1.4
+        elif num_trump == 4:
+            multiplier = 1.6
+        elif num_trump == 5:
+            multiplier = 1.8
+
+        if has_right_bower and has_left_bower:
+            multiplier += 0.15
+
+        trump_score *= multiplier
+
+        max_possible_score = (trump_ranks["right"] + trump_ranks["left"] + trump_ranks["A"] + trump_ranks["K"] + trump_ranks["Q"]) * 1.7
+
+        return min(1.0, trump_score / max_possible_score)
 
     def evaluate_aces(self, hand, trump_suit):
         """
         Evaluates the strength of the aces in the hand by adding 1 per ace and normalizing to 0-1
         """
         # TODO: Add evaluation for doubletons (Kx, Qx) as those should be evaluated differently (could become sorta like aces)
-        # TODO: Add ranking based on how many cards are the same suit as Aces (Aces are more valuable if they are the only card of their suit) (AK is also valuable though so should not be penalized)
         # TODO: King could be a boss card (basically an Ace) if an ace was the up card and turned down
         aces_sum = 0
-        for card in hand:
-            if card.rank == "A" and card.suit != trump_suit:
-                if card.suit == card.next_suit():
-                    # Aces of the "next" suit are less valuable because there are less cards in that suit
-                    aces_sum += 0.9
+        num_aces = 0
+
+        trump_cards = self.get_trump_cards(hand, trump_suit)
+        non_trump_cards = [card for card in hand if card not in trump_cards]
+
+        suit_counts = {}
+        for card in non_trump_cards:
+            if card.suit not in suit_counts:
+                suit_counts[card.suit] = 0
+            suit_counts[card.suit] += 1
+
+        for card in non_trump_cards:
+            if card.rank == "A":
+                num_aces += 1
+                base_score = 0.9 if card.suit == self.SUIT_PAIRS[trump_suit] else 1
+
+                if suit_counts[card.suit] == 1:
+                    multiplier = 1
+                elif suit_counts[card.suit] == 2:
+                    multiplier = 0.9
+                elif suit_counts[card.suit] == 3:
+                    multiplier = 0.7
                 else:
-                    aces_sum += 1
-        return aces_sum / 2.9 # Normalize value to 0-1 (max score is 2.9)
+                    multiplier = 0.5
+
+                aces_sum += base_score * multiplier
+
+        # Aces are more valuable if you have a lot of trump
+        bonus = 1.0
+        num_non_trump_suits = len(suit_counts)
+        if len(trump_cards) >= 3 and num_aces >= 1:
+            bonus += 0.2
+            if num_non_trump_suits == 1:
+                bonus += 0.1
+
+        aces_sum *= bonus
+
+        max_possible_score = 2.9
+        return min(1, aces_sum / max_possible_score) # Normalize value to 0-1 
 
     def evaluate_voids(self, hand, trump_suit):
         """
         Evaluates the strength of the suit voids in the hand by counting the number of suits that are not in the hand and normalizing to 0-1
         """
 
-        suits = set(card.suit for card in hand)
+        trump_cards = self.get_trump_cards(hand, trump_suit)
 
-        if trump_suit not in suits:
-            # If you don't have trump, voids are not valuable
-            num_suits = 4
-        else:
-            num_suits = len(suits)
+        if len(trump_cards) == 0:
+            # Voids are not valuable if you have no trump cards
+            return 0
+
+        non_trump_cards = [card for card in hand if card not in trump_cards]
+        non_trump_suits = set(card.suit for card in non_trump_cards)
+        num_non_trump_suits = len(non_trump_suits)
+
+        if num_non_trump_suits == 0:
+            # Only have trump cards
+            return 1.0
+        elif num_non_trump_suits == 1:
+            # Only trump and one other suit, stronger if you have more trump cards
+            return 1.0 if len(trump_cards) == 3 else 0.9
+        elif num_non_trump_suits == 2:
+            # Have one void
+            return 0.15
+
+        # Have all suits
+        return 0
         
-        return (4-num_suits) / 3 # Normalize value to 0-1 (max score is 3)
-    
     # def determine_random_card(self, hand, trump_suit, played_cards):
     #     """
     #     Determines a random card to play that is valid

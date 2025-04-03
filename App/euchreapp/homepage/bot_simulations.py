@@ -38,7 +38,7 @@ class Card():
         return self.suit == trump_suit and self.rank == "J"
     
     def is_left_bower(self, trump_suit):
-        return self.suit == self.SUITS_PAIRS[trump_suit] and self.rank == "J"
+        return self.suit == self.SUITS_PAIRS[trump_suit] and self.rank == 'J'
     
 class PlayedCard():
     def __init__(self, card, player):
@@ -48,451 +48,6 @@ class PlayedCard():
     def __str__(self):
         return f"{self.player.name} played {self.card.rank} of {self.card.suit}"
     
-# class Bot(Player):
-#     def __init__(self, name, partner, team):
-#         super().__init__(name, partner, team)
-#         self.strategy_weights = {
-#             'trump_cards': 0.5,
-#             'off_aces': 0.4,
-#             'num_suits': 0.1
-#             # 'seat_position': 0.2
-#         }
-
-#     def determine_trump(self, hand, dealer, up_card, player_order, trump_round):
-#         """
-#         Determines the trump suit by scoring their hand and comparing it to the thresholds for their position
-#         """
-#         # TODO: Add taking into account the up card rank and who it is going to (maybe would just affect the position thresholds? Like if it is a bower, dealer position threshold goes wayyyyy down)
-        
-#         trump_suit = up_card.card.suit
-#         position = self.get_seat_position(player_order)
-
-#         if trump_round == "1":
-#             # If you are dealer, in the first round, your hand should contain the up card and discard a card
-#             if self.name == dealer.name:
-#                 # Dealer should analyze their hand as if they already picked up the up card
-#                 temp_hand = hand.copy()
-#                 temp_hand = self.dealer_pickup(temp_hand, up_card, trump_suit)
-
-#                 hand_score = self.evaluate_hand(temp_hand, trump_suit)
-#             else:
-#                 hand_score = self.evaluate_hand(hand, trump_suit)
-
-#             first_round_position_thresholds = {
-#                 'first': 0.42,
-#                 'second': 0.35,
-#                 'third': 0.44,
-#                 'dealer': 0.375
-#             }
-
-#             threshold = first_round_position_thresholds[position]
-            
-#             return trump_suit if hand_score >= threshold else 'pass'
-        
-#         if trump_round == "2":
-
-#             second_round_thresholds = {
-#                 'first': {
-#                     'next': 0.275,
-#                     'reverse': 0.4
-#                 },
-#                 'second': {
-#                     'next': 0.45,
-#                     'reverse': 0.275
-#                 },
-#                 'third': {
-#                     'next': 0.3,
-#                     'reverse': 0.375
-#                 },
-#                 'dealer': {
-#                     'next': 0.35,
-#                     'reverse': 0.25
-#                 }
-#             }
-
-#             next_suit = up_card.card.next_suit()
-
-#             suits = ["hearts", "diamonds", "clubs", "spades"]
-#             reverse_suits = [suit for suit in suits if suit not in [trump_suit, next_suit]]
-
-#             seat_thresholds = second_round_thresholds[position]
-
-#             # TODO: Do not just choose next suit if greater than threshold, also consider reverse suit (Maybe check how much higher the difference between the threshold and the score is)
-
-#             next_suit_score = self.evaluate_hand(hand, next_suit)
-#             reverse_suit_score_1 = self.evaluate_hand(hand, reverse_suits[0])
-#             reverse_suit_score_2 = self.evaluate_hand(hand, reverse_suits[1])
-            
-#             if self.name == dealer.name:
-#                 options = [
-#                     (next_suit, next_suit_score),
-#                     (reverse_suits[0], reverse_suit_score_1),
-#                     (reverse_suits[1], reverse_suit_score_2)
-#                 ]
-
-#                 best_suit, _ = max(options, key=lambda x: x[1])
-#                 return best_suit
-
-#             should_call_next = next_suit_score >= seat_thresholds['next']
-#             should_call_reverse = reverse_suit_score_1 >= seat_thresholds['reverse'] or reverse_suit_score_2 >= seat_thresholds['reverse']
-
-#             # If all suits are higher than threshold, choose the suit that is greater than the threshold by the most
-#             if should_call_next and should_call_reverse:
-#                 if next_suit_score - seat_thresholds['next'] >= reverse_suit_score_1 - seat_thresholds['reverse'] or reverse_suit_score_2 - seat_thresholds['reverse']:
-#                     return next_suit
-#                 else:
-#                     return reverse_suits[0] if reverse_suit_score_1 >= reverse_suit_score_2 else reverse_suits[1]
-#             elif should_call_next:
-#                 return next_suit
-#             elif should_call_reverse:
-#                 return reverse_suits[0] if reverse_suit_score_1 >= reverse_suit_score_2 else reverse_suits[1]
-            
-#             return 'pass'
-        
-#     def get_seat_position(self, player_order):
-#         """
-#         Returns the position of the player in the player order
-#         """
-#         positions = ['first', 'second', 'third', 'dealer']
-
-#         for i, p in enumerate(player_order):
-#             if p == self:
-#                 return positions[i]
-
-#     def evaluate_hand(self, hand, trump_suit):
-#         """
-#         Evaluates the strength of the hand based on the trump suit, aces, and suit voids, multiplying each by the strategy weights
-#         """
-        
-#         score = 0
-
-#         # Evaluate strength of trump cards
-#         trump_strength = self.evaluate_trump(hand, trump_suit)
-#         score += trump_strength * self.strategy_weights['trump_cards']
-#         # print("Trump Strength: ", trump_strength)
-
-#         # Evaluate strength of Aces
-#         aces_strength = self.evaluate_aces(hand, trump_suit)
-#         score += aces_strength * self.strategy_weights['off_aces']
-#         # print("Aces Strength: ", aces_strength)
-
-
-#         # Evaluate suit voids
-#         voids_strength = self.evaluate_voids(hand, trump_suit)
-#         score += voids_strength * self.strategy_weights['num_suits']
-#         # print("Voids Strength: ", voids_strength)
-
-#         # Evaluate seat position
-#         # seat_strength = self.evaluate_seat_position(player_position, dealer)
-#         # score += seat_strength * self.strategy_weights['seat_position']
-
-#         return score
-
-#     def evaluate_trump(self, hand, trump_suit):
-#         """
-#         Evaluates the strength of the trump cards in the hand by adding their values together and normalizing to 0-1
-#         """
-#         # TODO: King could be a boss card (basically an Ace) if an ace was the up card and turned down, so should be evaluated differently (Same with Jacks if a bower was turned down the JA are top two, not JJ)
-#         # TODO: Dealer should be evaluated differently: you pick up the up card and discard so hand should evaluated differently
-
-#         trump_sum = 0
-
-#         for playedCard in hand:
-#             if playedCard.card.is_right_bower(trump_suit):
-#                 trump_sum += 1
-#             elif playedCard.card.is_left_bower(trump_suit):
-#                 trump_sum += 0.9
-#             elif playedCard.card.suit == trump_suit:
-#                 trump_ranks = {"A": 0.8, "K": 0.7, "Q": 0.6, "10": 0.5, "9": 0.4}
-#                 trump_sum += trump_ranks[playedCard.card.rank]
-
-#         return trump_sum / 4 # Normalize value to 0-1 (max score is 4)
-
-#     def evaluate_aces(self, hand, trump_suit):
-#         """
-#         Evaluates the strength of the aces in the hand by adding 1 per ace and normalizing to 0-1
-#         """
-#         # TODO: Add evaluation for doubletons (Kx, Qx) as those should be evaluated differently (could become sorta like aces)
-#         # TODO: Add ranking based on how many cards are the same suit as Aces (Aces are more valuable if they are the only card of their suit) (AK is also valuable though so should not be penalized)
-#         # TODO: King could be a boss card (basically an Ace) if an ace was the up card and turned down
-#         aces_sum = 0
-#         for playedCard in hand:
-#             if playedCard.card.rank == "A" and playedCard.card.suit != trump_suit:
-#                 if playedCard.card.suit == playedCard.card.next_suit():
-#                     # Aces of the "next" suit are less valuable because there are less cards in that suit
-#                     aces_sum += 0.9
-#                 else:
-#                     aces_sum += 1
-#         return aces_sum / 2.9 # Normalize value to 0-1 (max score is 2.9)
-
-#     def evaluate_voids(self, hand, trump_suit):
-#         """
-#         Evaluates the strength of the suit voids in the hand by counting the number of suits that are not in the hand and normalizing to 0-1
-#         """
-
-#         suits = set(playedCard.card.suit for playedCard in hand)
-
-#         if trump_suit not in suits:
-#             # If you don't have trump, voids are not valuable
-#             num_suits = 4
-#         else:
-#             num_suits = len(suits)
-        
-#         return (4-num_suits) / 3 # Normalize value to 0-1 (max score is 3)
-    
-#     def determine_random_card(self, hand, trump_suit, played_cards):
-#         """
-#         Determines a random card to play that is valid
-#         """
-#         if not played_cards:
-#             return hand[0]
-        
-#         lead_suit = played_cards[0].card.suit
-#         valid_cards = [card for card in hand if card.card.suit == lead_suit]
-#         if valid_cards:
-#             return valid_cards[0]
-        
-#         return hand[0]
-
-#     def determine_best_card(self, hand, trump_suit, played_cards, previous_cards, trump_caller):
-#         """
-#         Determines the best card to play in a trick
-#         """
-#         # TODO: Keep track of other players played cards - i.e. what trump are left
-
-#         # If you only have one card, play it
-#         if len(hand) == 1:
-#             return hand[0]
-
-#         partner_called_trump = trump_caller.name == self.partner
-#         player_called_trump = trump_caller.name == self.name
-#         opponent_called_trump = not partner_called_trump and not player_called_trump # TODO: It can be useful to know which opponent called trump specifically as that can change the card to play
-
-#         # Check if you are leading
-#         if not played_cards:
-#             # Decide what card to lead
-#             return self.choose_lead_card(hand, trump_suit, previous_cards, partner_called_trump, player_called_trump, opponent_called_trump)
-        
-#         # Not leading, so get suit that was lead
-#         if played_cards[0].card.is_left_bower(trump_suit):
-#             lead_suit = played_cards[0].card.next_suit()
-#         else:
-#             lead_suit = played_cards[0].card.suit
-
-#         # Find winner of current trick
-#         winning_card = max(played_cards, key=lambda pc: Card.euchre_rank(pc.card, trump_suit, lead_suit))
-#         current_winner = winning_card.player.name
-        
-#         is_partner_winning = current_winner == self.partner
-#         player_is_last_to_play = len(played_cards) == 3
-
-#         # Gather cards by suit
-#         trump_cards = self.get_trump_cards(hand, trump_suit)
-#         if lead_suit == trump_suit:
-#             lead_suit_cards = trump_cards
-#         else:
-#             lead_suit_cards = [played_card for played_card in hand if played_card.card.suit == lead_suit and not played_card.card.is_left_bower(trump_suit)]
-
-#         # Get lowest card in hand
-#         lowest_card = min(hand, key=lambda x: Card.euchre_rank(x.card, trump_suit, lead_suit))
-
-#         if lead_suit_cards:
-#             high_lead = max(lead_suit_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit, lead_suit))
-#             low_lead = min(lead_suit_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit, lead_suit))
-
-#             # Follow suit
-#             if is_partner_winning:
-#                 if player_is_last_to_play:
-#                     # Partner already has the trick won, so play lowest card
-#                     return low_lead
-#                 elif self.is_boss_card(winning_card, previous_cards):
-#                     # If partner is winning with a boss card, play lowest card
-#                     return low_lead
-#                 else:
-#                     # If partner is not winning with a boss card, play highest card if you can win trick
-#                     if high_lead.card.rank > winning_card.card.rank:
-#                         return high_lead
-#             else:
-#                 # Opponent is winning, so play highest card if you can win trick
-#                 if high_lead.card.rank > winning_card.card.rank:
-#                     return high_lead
-                
-#             return low_lead
-        
-#         played_trump_cards = self.get_trump_cards(played_cards, trump_suit)
-        
-#         if not played_trump_cards:
-#             if trump_cards:
-#                 small_trump = min(trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-#                 if is_partner_winning:
-#                     if player_is_last_to_play:
-#                         return lowest_card
-#                     elif not self.is_boss_card(winning_card, previous_cards):
-#                         # Partner is winning, but not with a good card, so play small trump
-#                         return small_trump
-#                     return lowest_card
-#                 else:
-#                     # Opponent is winning, so play small trump
-#                     return small_trump
-#             else:
-#                 # Player has no trump cards, so play lowest card
-#                 return lowest_card
-                
-#         # Trump cards have been played
-#         if trump_cards:
-#             if is_partner_winning:
-#                 # Partner is winning with a trump card
-#                 return lowest_card
-#             else:
-#                 # Opponent is winning with a trump card
-#                 winning_trump_cards = [card for card in trump_cards 
-#                                     if Card.euchre_rank(card.card, trump_suit) > Card.euchre_rank(winning_card.card, trump_suit)]
-#                 if winning_trump_cards:
-#                     # Play the highest trump necessary to take the lead
-#                     return min(winning_trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-#         # Cannot win trick, so play lowest card # TODO: making a void could be more valuable than playing lowest card (dealer_discard?)      
-#         return lowest_card  
-
-#     def choose_lead_card(self, hand, trump_suit, previous_cards, partner_called_trump, player_called_trump, opponent_called_trump):
-#         """
-#         Determines the best card to lead with
-#         """
-#         trump_cards = self.get_trump_cards(hand, trump_suit)
-
-#         # Get all cards that are the highest card in the suit remaining
-#         boss_cards = self.get_boss_cards_in_hand(hand, trump_suit, previous_cards)
-
-#         # Lead strong if partner called trump
-#         if partner_called_trump and trump_cards:
-#             return max(trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-
-#         # If you called trump and have highest trump, lead it
-#         if player_called_trump:
-#             have_highest_trump = self.has_boss_card(hand, trump_suit, previous_cards)
-#             if have_highest_trump:
-#                 return max(trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-#             elif len(trump_cards) > 1:
-#                 return min(trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-
-#         # If opponents called, lead boss off suit if you have it or lead low
-#         if opponent_called_trump:
-#             if boss_cards:
-#                 return max(boss_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-#             else:
-#                 return min(hand, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-            
-#         # Lead highest off suit if it is a boss card
-#         if boss_cards:
-#             non_trump_boss = [card for card in boss_cards if card.card.suit != trump_suit]
-#             if non_trump_boss:
-#                 return max(non_trump_boss, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-
-#         # Otherwise, simply lead lowest card
-#         return min(hand, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-
-#     def get_boss_cards_in_hand(self, hand, trump_suit, previous_cards):
-#         """
-#         Determines all boss cards in hand
-#         """
-#         boss_cards = []
-#         for card in hand:
-#             if self.is_boss_card(card, previous_cards):
-#                 boss_cards.append(card)
-#         return boss_cards
-    
-#     def get_boss_card(self, suit, previous_cards, is_trump=False):
-#         """
-#         Determines the highest card of the highest rank remaining in the suit
-#         """
-#         card_ranks = ["A", "K", "Q", "J", "10", "9"]
-
-#         if is_trump:
-#             temp_card = Card("J", suit)
-#             # Deal with bowers
-#             if not any(played_card.card.is_right_bower(suit) for played_card in previous_cards):
-#                 return temp_card
-#             elif not any(played_card.card.is_left_bower(suit) for played_card in previous_cards):
-#                 return Card("J", temp_card.next_suit()) # should be next suit
-
-#             # Both bowers have been played already    
-#             card_ranks.remove("J")
-
-#         # Get all previous cards of the relevant suit
-#         relevant_previous_cards = [card for card in previous_cards if card.card.suit == suit]
-
-#         for card in relevant_previous_cards:
-#             if card.card.rank in card_ranks:
-#                 card_ranks.remove(card.card.rank)
-
-#         return Card(card_ranks[0], suit) if card_ranks else None
-        
-#     def is_boss_card(self, card, previous_cards):
-#         """
-#         Determines if a card is the highest card of the highest rank remaining in the suit
-#         """
-#         highest_card = self.get_boss_card(card.card.suit, previous_cards)
-
-#         return card.card.rank == highest_card.rank and card.card.suit == highest_card.suit
-
-#     def has_boss_card(self, hand, suit, previous_cards):
-#         """
-#         Determines if the hand has a boss card in the given suit
-#         """
-#         highest_card = self.get_boss_card(suit, previous_cards)
-
-#         if not highest_card:
-#             return False
-
-#         return any(played_card.card.rank == highest_card.rank and played_card.card.suit == highest_card.suit for played_card in hand)
-                
-#     def get_trump_cards(self, hand, trump_suit):
-#         return [card for card in hand if card.card.suit == trump_suit or card.card.is_left_bower(trump_suit)]
-
-#     def dealer_pickup(self, dealer_hand, up_card, trump_suit):
-#         """
-#         Dealer gets up card and discards card
-#         """
-#         # Dealer gets up card and discards card
-#         dealer_hand.append(up_card)
-
-#         # Discard lowest non-trump card for now # TODO: Improve discarding logic (making a void is more valuable than discarding a low card)
-
-#         card_to_discard = self.dealer_discard(dealer_hand, trump_suit)
-#         dealer_hand.remove(card_to_discard)
-#         return dealer_hand
-
-#     def dealer_discard(self, dealer_hand, trump_suit):
-#         """
-#         Choose a card to discard based on creating a suit void if possible
-#         """
-#         trump_cards = self.get_trump_cards(dealer_hand, trump_suit)
-#         non_trump_cards = [card for card in dealer_hand if card not in trump_cards]
-
-#         if not non_trump_cards:
-#             # Hand is all trump cards, so discard lowest trump card
-#             return min(trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-        
-#         # Find a possible void
-#         suit_counts = {}
-#         for card in non_trump_cards:
-#             suit = card.card.suit
-#             if suit not in suit_counts:
-#                 suit_counts[suit] = []
-#             suit_counts[suit].append(card)
-
-#         # Find any suits with only one card (not Aces)
-#         possible_voids = [
-#             cards[0] for suit, cards in suit_counts.items()
-#             if len(cards) == 1 and cards[0].card.rank != "A"
-#         ]
-
-#         if possible_voids:
-#             # Choose the lowest card of the possible voids
-#             return min(possible_voids, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-        
-#         # If no possible voids, discard lowest non-trump card
-#         return min(non_trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
-
 class MonteCarloSimulation():
     def run_simulation(self, num_simulations=1000):
         """
@@ -507,18 +62,11 @@ class MonteCarloSimulation():
 
         players = [bot1, bot2, bot3, bot4]
 
-        # team1 = [players[0]['name'], players[2]['name']]
-        # team2 = [players[1]['name'], players[3]['name']]
-
-        # dealer = random.choice(players)
-        # player_order = [player for player in players if player != dealer]
-
         # Track number of calls for each player
         calls_round1 = {player.name: 0 for player in players}
         calls_round2 = {player.name: 0 for player in players}
 
         # Track number of wins for each team
-        team1_points, team2_points = 0, 0
         team1_wins = 0
         team2_wins = 0
 
@@ -530,7 +78,18 @@ class MonteCarloSimulation():
         team1_marches = 0
         team2_marches = 0
 
+        # Track total points for each team
+        team1_total_points = 0
+        team2_total_points = 0
+
+        # Track loner attempts
+        loner_attempts_round1 = {player.name: 0 for player in players}
+        loner_attempts_round2 = {player.name: 0 for player in players}
+
         for _ in range(num_simulations):
+            
+            team1_points, team2_points = 0, 0
+
             # Make and shuffle deck
             suits = ["hearts", "diamonds", "clubs", "spades"]
             ranks = ["A", "K", "Q", "J", "10", "9"]
@@ -557,7 +116,7 @@ class MonteCarloSimulation():
             for trump_round in (1, 2):
                 for bot in players:
 
-                    decision = bot.determine_trump(
+                    trump_decision, going_alone = bot.determine_trump(
                         hand=dealt_hands[bot.name],
                         dealer=dealer,
                         up_card=up_card,
@@ -565,9 +124,15 @@ class MonteCarloSimulation():
                         trump_round=str(trump_round)
                     )
 
-                    if decision != 'pass':
+                    if trump_decision != 'pass':
+
+                        # print(f"{bot.name} called {trump_decision} ({up_card}) in round {trump_round} with hand: {', '.join([str(card) for card in dealt_hands[bot.name]])} ({going_alone})")
+
                         if trump_round == 1:
                             calls_round1[bot.name] += 1
+
+                            if going_alone:
+                                loner_attempts_round1[bot.name] += 1
 
                             dealt_hands[dealer.name].append(up_card)
                             
@@ -575,6 +140,10 @@ class MonteCarloSimulation():
                             dealt_hands[dealer.name].remove(discarded_card)
                         else:
                             calls_round2[bot.name] += 1
+
+                            if going_alone:
+                                loner_attempts_round2[bot.name] += 1
+
                         trump_maker = bot
 
                         break
@@ -583,7 +152,10 @@ class MonteCarloSimulation():
                     break
 
             # Use this to get stats on how many times each call was successful or euchred
-            team1_points, team2_points = self.play_hand(dealt_hands, players, decision, trump_maker)
+            team1_points, team2_points = self.play_hand(dealt_hands, players, trump_decision, trump_maker, going_alone)
+
+            team1_total_points += team1_points
+            team2_total_points += team2_points
 
             # Calculate calls and wins
             if trump_maker.team == 1:
@@ -619,6 +191,19 @@ class MonteCarloSimulation():
             for name in calls_round1
         }
 
+        loner_rates_round1 = {
+            name: round(loner_attempts_round1[name] / num_simulations * 100, 2)
+            for name in loner_attempts_round1
+        }
+        loner_rates_round2 = {
+            name: round(loner_attempts_round2[name] / num_simulations * 100, 2)
+            for name in loner_attempts_round2
+        }
+        total_loner_rates = {
+            name: round((loner_attempts_round1[name] + loner_attempts_round2[name]) / num_simulations * 100, 2)
+            for name in loner_attempts_round1
+        }
+        
         print(f"Round 1 call rates after {num_simulations} simulations:")
         for name, rate in call_rates_round1.items():
             print(f"{name}: {rate}%")
@@ -630,6 +215,19 @@ class MonteCarloSimulation():
         print(f"Total call rates after {num_simulations} simulations:")
         for name, rate in total_call_rates.items():
             print(f"{name}: {rate}%")
+
+        print(f"Loner rates in round 1 after {num_simulations} simulations:")
+        for name, rate in loner_rates_round1.items():
+            print(f"{name}: {rate}%")
+
+        print(f"Loner rates in round 2 after {num_simulations} simulations:")
+        for name, rate in loner_rates_round2.items():
+            print(f"{name}: {rate}%")
+
+        print(f"Total loner rates after {num_simulations} simulations:")
+        for name, rate in total_loner_rates.items():
+            print(f"{name}: {rate}%")
+
 
         # Calculate win rates
         if team1_calls != 0:
@@ -648,6 +246,10 @@ class MonteCarloSimulation():
         print(f"Team 1 win rate after {num_simulations} simulations: {team1_win_rate}%")
         print(f"Team 2 win rate after {num_simulations} simulations: {team2_win_rate}%")
 
+        # Print points per hand for each team
+        print(f"Team 1 points per hand: {team1_total_points / num_simulations}")
+        print(f"Team 2 points per hand: {team2_total_points / num_simulations}")
+
         if team1_marches != 0:
             team1_marches_rate = (team1_marches / team1_calls) * 100
             print(f"Team 1 marches: {team1_marches_rate}%")
@@ -655,7 +257,7 @@ class MonteCarloSimulation():
             team2_marches_rate = (team2_marches / team2_calls) * 100
             print(f"Team 2 marches: {team2_marches_rate}%")
 
-    def play_hand(self, dealt_hands, players, trump_suit, trump_maker):
+    def play_hand(self, dealt_hands, players, trump_suit, trump_maker, going_alone):
         """
         Plays a hand of Euchre
         """
@@ -666,6 +268,11 @@ class MonteCarloSimulation():
 
         # Create copy of players list to keep track of player order
         play_order = players[:]
+
+        # if going_alone:
+        #     partner = next(p for p in play_order if p.name == trump_maker.partner)
+        #     play_order.remove(partner)
+        #     del dealt_hands[partner.name]
 
         for trick_number in range(1, 6):
             played_cards = []
@@ -751,8 +358,39 @@ class MonteCarloSimulation():
             dummy_card = Card(rank=rank, suit=suit)
             dummy_hand.append(dummy_card)
         return dummy_hand        
+    
+    def print_hand_scores(self, hand_str, trump_suit):
+        """
+        Takes a string of cards and prints out the score for that hand in each suit or a specific trump suit.
+        
+        For debugging purposes
+        """
+
+        bot = Bot("Bot", partner="Bot", team=1)
+
+        # Convert string to list of cards
+        hand = []
+        for card_str in hand_str.split(", "):
+            rank, suit = card_str.split(" of ")
+            hand.append(Card(rank=rank, suit=suit))
+            
+        print(f"\nScoring hand: {hand_str}")
+        print("---------------")
+
+        # Score hand in specified trump suit only
+        trump_score = bot.evaluate_trump(hand, trump_suit)
+        aces_score = bot.evaluate_aces(hand, trump_suit)
+        voids_score = bot.evaluate_voids(hand, trump_suit)
+        total_score = bot.evaluate_hand(hand, trump_suit)
+        
+        print(f"{trump_suit.capitalize()}:")
+        print(f"  Trump Score: {trump_score:.3f} * 0.7 = {trump_score * 0.7:.3f}")
+        print(f"  Aces Score: {aces_score:.3f} * 0.2 = {aces_score * 0.2:.3f}")
+        print(f"  Voids Score: {voids_score:.3f} * 0.1 = {voids_score * 0.1:.3f}")
+        print(f"  Total Score: {total_score:.3f}")
 
         
 if __name__ == "__main__":
     simulation = MonteCarloSimulation()
     simulation.run_simulation(10000)
+    # simulation.print_hand_scores("A of diamonds, A of hearts, J of spades, J of diamonds, J of hearts", "diamonds")
