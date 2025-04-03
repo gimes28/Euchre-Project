@@ -85,6 +85,10 @@ class MonteCarloSimulation():
         # Track loner attempts
         loner_attempts_round1 = {player.name: 0 for player in players}
         loner_attempts_round2 = {player.name: 0 for player in players}
+        team1_loner_attempts = 0
+        team2_loner_attempts = 0
+        team1_loner_wins = 0
+        team2_loner_wins = 0
 
         for _ in range(num_simulations):
             
@@ -160,12 +164,20 @@ class MonteCarloSimulation():
             # Calculate calls and wins
             if trump_maker.team == 1:
                 team1_calls += 1
+                if going_alone:
+                    team1_loner_attempts += 1
+                    if team1_points == 4:
+                        team1_loner_wins += 1
                 if team1_points > team2_points:
                     team1_wins += 1
                     if team1_points == 2:
                         team1_marches += 1
             else:
                 team2_calls += 1
+                if going_alone:
+                    team2_loner_attempts += 1
+                    if team2_points == 4:
+                        team2_loner_wins += 1
                 if team2_points > team1_points:
                     team2_wins += 1
                     if team2_points == 2:
@@ -257,6 +269,18 @@ class MonteCarloSimulation():
             team2_marches_rate = (team2_marches / team2_calls) * 100
             print(f"Team 2 marches: {team2_marches_rate}%")
 
+        if team1_loner_attempts != 0:
+            team1_loner_success_rate = (team1_loner_wins / team1_loner_attempts) * 100
+            print(f"Team 1 loner success rate: {team1_loner_success_rate:.2f}%")
+        if team2_loner_attempts != 0:
+            team2_loner_success_rate = (team2_loner_wins / team2_loner_attempts) * 100
+            print(f"Team 2 loner success rate: {team2_loner_success_rate:.2f}%")
+        # Total loner success rate
+        if team1_loner_attempts + team2_loner_attempts != 0:
+            total_loner_success_rate = ((team1_loner_wins + team2_loner_wins) / (team1_loner_attempts + team2_loner_attempts)) * 100
+            print(f"Total loner success rate: {total_loner_success_rate:.2f}%")
+
+
     def play_hand(self, dealt_hands, players, trump_suit, trump_maker, going_alone):
         """
         Plays a hand of Euchre
@@ -269,17 +293,26 @@ class MonteCarloSimulation():
         # Create copy of players list to keep track of player order
         play_order = players[:]
 
-        # if going_alone:
-        #     partner = next(p for p in play_order if p.name == trump_maker.partner)
-        #     play_order.remove(partner)
-        #     del dealt_hands[partner.name]
+        # If going alone, remove partner from play order and remove their hand
+        if going_alone:
+            partner = next(p for p in play_order if p.name == trump_maker.partner)
+            play_order.remove(partner)
+            del dealt_hands[partner.name]
 
         for trick_number in range(1, 6):
             played_cards = []
 
             # Each player plays a card
             for bot in play_order:
-                card_to_play = bot.determine_best_card(dealt_hands[bot.name], trump_suit, played_cards, previous_tricks, trump_maker)
+                card_to_play = bot.determine_best_card(
+                    hand=dealt_hands[bot.name],
+                    trump_suit=trump_suit,
+                    played_cards=played_cards,
+                    previous_tricks=previous_tricks,
+                    trump_caller=trump_maker,
+                    going_alone=going_alone,
+                    tricks_won=team1_tricks if bot.team == 1 else team2_tricks
+                )
 
                 dealt_hands[bot.name].remove(card_to_play)
 
@@ -301,7 +334,7 @@ class MonteCarloSimulation():
             winner_idx = play_order.index(winner)
             play_order = play_order[winner_idx:] + play_order[:winner_idx]
 
-        return self.evaluate_points(team1_tricks, team2_tricks, trump_maker)
+        return self.evaluate_points(team1_tricks, team2_tricks, trump_maker, going_alone)
 
     def evaluate_trick_winner(self, trump_suit, played_cards):
         """
@@ -317,13 +350,14 @@ class MonteCarloSimulation():
         
         return winning_card.player
 
-    def evaluate_points(self, team1_tricks, team2_tricks, trump_maker):
+    def evaluate_points(self, team1_tricks, team2_tricks, trump_maker, went_alone):
         """
         Evaluates the points for each team based on how many tricks they took
         """
         # 1 point if you call it and win 3 tricks
         # 2 points if you call it and win 5 tricks
         # 2 points if the other team calls it and you win 3 tricks
+        # 4 points if you win all 5 tricks when going alone
         # TODO: Update for alone attempts when that is implemented
 
         team1_points = 0
@@ -337,14 +371,20 @@ class MonteCarloSimulation():
         if team1_tricks >= 3:
             if trump_calling_team == 1:
                 # Team 1 called trump and won
-                team1_points += 1 if team1_tricks < 5 else 2
+                if went_alone and team1_tricks == 5:
+                    team1_points += 4
+                else:
+                    team1_points += 1 if team1_tricks < 5 else 2
             else:
                 # Team 1 euchred the other team
                 team1_points += 2
         if team2_tricks >= 3:
             if trump_calling_team == 2:
                 # Team 2 called trump and won
-                team2_points += 1 if team2_tricks < 5 else 2
+                if went_alone and team2_tricks == 5:
+                    team2_points += 4
+                else:
+                    team2_points += 1 if team2_tricks < 5 else 2
             else:
                 # Team 2 euchred the other team
                 team2_points += 2
@@ -392,5 +432,5 @@ class MonteCarloSimulation():
         
 if __name__ == "__main__":
     simulation = MonteCarloSimulation()
-    simulation.run_simulation(10000)
+    simulation.run_simulation(1000000)
     # simulation.print_hand_scores("A of diamonds, A of hearts, J of spades, J of diamonds, J of hearts", "diamonds")

@@ -432,6 +432,7 @@ def start_round(request):
         try:
             game = Game.objects.latest('id')
             trump_caller_name = request.POST.get("trump_caller")
+            going_alone = request.POST.get("going_alone") == "true"
 
             try:
                 trump_caller = Player.objects.get(name=trump_caller_name)
@@ -472,7 +473,7 @@ def start_round(request):
                     return JsonResponse({"error": f"{player.name} has {len(player_cards)} cards instead of 5!"}, status=500)
 
             # Step 5: Play the entire round (all 5 tricks)
-            round_result = start_euchre_round(game, trump_caller)  # Plays **all 5 tricks**
+            round_result = start_euchre_round(game, trump_caller, going_alone)  # Plays **all 5 tricks**
             
             return round_result  # Returns JSON with full round data
 
@@ -580,9 +581,9 @@ def determine_bot_trump_decision(request):
             player_order = [Player.objects.get(name=player['name']) for player in player_order_data]
 
             # Determine the trump decision
-            trump_decision = bot.determine_trump(bot_hand, game.dealer, up_card, player_order, trump_round)
+            trump_decision, going_alone = bot.determine_trump(bot_hand, game.dealer, up_card, player_order, trump_round)
 
-            return JsonResponse({"decision": trump_decision})
+            return JsonResponse({"decision": trump_decision, "going_alone": going_alone})
 
         except Exception as e:
             return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)

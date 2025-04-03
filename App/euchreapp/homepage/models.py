@@ -268,7 +268,7 @@ def evaluate_trick_winner(trump_suit, played_cards):
 
 
 
-def update_game_results(game, team1_tricks, team2_tricks, trump_caller):
+def update_game_results(game, team1_tricks, team2_tricks, trump_caller, going_alone):
     """
     Updates game results after each round based on tricks won.
     """
@@ -280,14 +280,20 @@ def update_game_results(game, team1_tricks, team2_tricks, trump_caller):
     if team1_tricks >= 3:
         if trump_calling_team == 1:
             # Team 1 called trump and won
-            game.team1_points += 1 if team1_tricks < 5 else 2
+            if going_alone and team1_tricks == 5:
+                game.team1_points += 4
+            else:
+                game.team1_points += 1 if team1_tricks < 5 else 2
         else:
             # Team 1 euchred the other team
             game.team1_points += 2
     if team2_tricks >= 3:
         if trump_calling_team == 2:
             # Team 2 called trump and won
-            game.team2_points += 1 if team2_tricks < 5 else 2
+            if going_alone and team2_tricks == 5:
+                game.team2_points += 4
+            else:
+                game.team2_points += 1 if team2_tricks < 5 else 2
         else:
             # Team 2 euchred the other team
             game.team2_points += 2
@@ -429,7 +435,7 @@ def update_remaining_cards_frontend():
 
 
 
-def start_euchre_round(game, trump_caller):
+def start_euchre_round(game, trump_caller, going_alone):
     """
     Plays all 5 tricks in one request and returns the final round results.
     """
@@ -459,7 +465,19 @@ def start_euchre_round(game, trump_caller):
 
     # Left of the dealer leads the first trick
     dealer_index = players.index(game.dealer)
-    trick_leader = players[(dealer_index + 1) % len(players)]
+    trick_leader_index = (dealer_index + 1) % len(players)
+    trick_leader = players[trick_leader_index]
+
+    # If going alone, you play without partner
+    play_order = players[:]
+    if going_alone:
+        partner = next(p for p in play_order if p.name == trump_caller.partner)
+        play_order.remove(partner)
+        del player_hands[partner]
+
+    if trick_leader not in play_order:
+        new_leader_index = (trick_leader_index + 1) % len(players)
+        trick_leader = players[new_leader_index]
 
     # Play all 5 tricks in a loop
     for trick_number in range(5):
@@ -467,12 +485,13 @@ def start_euchre_round(game, trump_caller):
         hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit or None)
 
         # Whoever won the trick plays first
-        leader_index = players.index(trick_leader)
-        player_order = players[leader_index:] + players[:leader_index]
+        leader_index = play_order.index(trick_leader)
+        current_player_order = play_order[leader_index:] + play_order[:leader_index]
 
         # Players play in order
-        for player in player_order:
-            card_to_play = player.determine_best_card(player_hands[player], hand.trump_suit, trick_cards, previous_tricks, trump_caller)
+        for player in current_player_order:
+            tricks_won = team1_tricks if player.team == 1 else team2_tricks
+            card_to_play = player.determine_best_card(player_hands[player], hand.trump_suit, trick_cards, previous_tricks, trump_caller, going_alone, tricks_won)
             play_card(player, hand, card_to_play, player_hands, game)
             trick_cards.append(PlayedCard(player=player, hand=hand, card=card_to_play, order=len(trick_cards) + 1))
 
@@ -501,7 +520,7 @@ def start_euchre_round(game, trump_caller):
         })
 
     # Update the game results after all tricks
-    update_game_results(game, team1_tricks, team2_tricks, trump_caller)
+    update_game_results(game, team1_tricks, team2_tricks, trump_caller, going_alone)
 
     # Return the final round results
     return JsonResponse({

@@ -107,14 +107,19 @@ $(document).ready(function () {
         $("#modal-trump .modal-content").html(`
             <p><strong>Trump Card:</strong> ${card}</p>
             <p><strong>${player}</strong>, do you want to make this the trump card?</p>
+            <div class="going-alone-option">
+                <input type="checkbox" id="going-alone-checkbox">
+                <label for="going-alone-checkbox">Go Alone?</label>
+            </div>
         `);
 
         $("#reject-trump-button").prop("disabled", false);
     
         // Ensure buttons are properly assigned new handlers
         $("#accept-trump-button").off("click").on("click", function () {
+            const goingAlone = $("#going-alone-checkbox").is(":checked");
             $("#modal-trump").fadeOut(); // Hide the modal before proceeding
-            acceptTrump(player, card, 1);
+            acceptTrump(player, card, 1, goingAlone);
         });
     
         $("#reject-trump-button").off("click").on("click", function () {
@@ -136,6 +141,10 @@ $(document).ready(function () {
         $(".suit-button").show();
         $("#modal-trump .modal-content").html(`
             <p><strong>${player}</strong>, select a trump suit or pass:</p>
+            <div class="going-alone-option">
+                <input type="checkbox" id="going-alone-checkbox">
+                <label for="going-alone-checkbox">Go Alone?</label>
+            </div>
         `);
 
         // Enable all suit buttons
@@ -152,8 +161,9 @@ $(document).ready(function () {
 
         $(".suit-button").off("click").on("click", function () {
             const selectedSuit = $(this).data("suit");
+            const goingAlone = $("#going-alone-checkbox").is(":checked");
             $("#modal-trump").fadeOut(); // Hide the modal before proceeding
-            acceptTrump(player, selectedSuit, 2);
+            acceptTrump(player, selectedSuit, 2, goingAlone);
         });
 
         $("#reject-trump-button").off("click").on("click", function () {
@@ -164,8 +174,8 @@ $(document).ready(function () {
         $("#modal-trump").fadeIn(); // Ensure modal appears properly
     }    
 
-    function acceptTrump(player, card, trumpRound) {
-        const data = { trump_round: trumpRound };
+    function acceptTrump(player, card, trumpRound, goingAlone) {
+        const data = { trump_round: trumpRound};
 
         if (trumpRound === 1) {
             if (gameResponse.remaining_cards.includes(card)) {
@@ -207,8 +217,10 @@ $(document).ready(function () {
     
                 // Hide trump modal and show round start confirmation
                 $("#modal-trump").fadeOut();
-                message = `${player} accepted trump! The trump suit is now ${currentSuit}.`
-                showRoundStart(message, player);
+                message = goingAlone 
+                    ? `${player} is <b>going alone</b> in ${currentSuit}.`
+                    : `${player} called trump! The trump suit is now ${currentSuit}.`
+                showRoundStart(message, player, goingAlone);
             },
             error: function (xhr) {
                 alert("Error accepting trump: " + xhr.responseText);
@@ -282,19 +294,20 @@ $(document).ready(function () {
             async: false,
             success: function (response) {
                 const botDecision = response.decision;
+                const goingAlone = response.going_alone;
                 console.log("Bot decision:", botDecision);
 
                 if (trumpRound === 1) {
                     if (botDecision === 'pass') {
                         rejectTrump(player, trumpRound);
                     } else {
-                        acceptTrump(player, upCard, trumpRound);
+                        acceptTrump(player, upCard, trumpRound, goingAlone);
                     }
                 } else if (trumpRound === 2) {
                     if (botDecision === 'pass') {
                         rejectTrump(player, trumpRound);
                     } else {
-                        acceptTrump(player, botDecision, trumpRound);
+                        acceptTrump(player, botDecision, trumpRound, goingAlone);
                     }
                 }
             },
@@ -321,13 +334,12 @@ $(document).ready(function () {
     }
 
     // Function to display the round status
-    function showRoundStart(message, trumpCaller) {
+    function showRoundStart(message, trumpCaller, goingAlone) {
         if (!trumpSelected) return;  // Prevents round modal from appearing too early
 
         $("#modal-trump").fadeOut(); // Hide trump modal if still visible
         $("#modal-round .modal-content").html(`
             <p>${message}</p>
-            <p><strong>Order of Play:</strong> ${playerOrder.map(player => player.name).join(", ")}</p>
         `);
     
         $("#modal-round-button").show();
@@ -342,7 +354,7 @@ $(document).ready(function () {
 
         $("#modal-round-button").off("click").on("click", function () {
             $("#modal-round").fadeOut();
-            startRound(trumpCaller);
+            startRound(trumpCaller, goingAlone);
         });
 
         $("#modal-round").fadeIn(); // Ensure round modal is displayed
@@ -588,13 +600,13 @@ $(document).ready(function () {
     
 
     // Handle starting the round
-    function startRound(trumpCaller) {
+    function startRound(trumpCaller, goingAlone) {
         console.log(`🔄 Starting round. Trump caller: ${trumpCaller}`);
 
         $.ajax({
             url: "/start-round/",
             type: "POST",
-            data: { trump_caller: trumpCaller },
+            data: { trump_caller: trumpCaller, going_alone: goingAlone },
             success: function (response) {
                 console.log("✅ Round Results Received:", response);
 
@@ -849,10 +861,10 @@ $(document).ready(function () {
             const opponent2Index = trick.players.indexOf(opponent2); // Opponent 2
 
             // Extract cards based on the player index
-            const playerCard = trick.cards[playerIndex];
-            const opponent1Card = trick.cards[opponent1Index];
-            const teammateCard = trick.cards[teammateIndex];
-            const opponent2Card = trick.cards[opponent2Index];
+            const playerCard = playerIndex !== -1 ? trick.cards[playerIndex] : "";
+            const opponent1Card = opponent1Index !== -1 ? trick.cards[opponent1Index] : "";
+            const teammateCard = teammateIndex !== -1 ? trick.cards[teammateIndex] : "";
+            const opponent2Card = opponent2Index !== -1 ? trick.cards[opponent2Index] : "";
 
             // Extract players and cards
             // let player = trick.players[0]; // Player
