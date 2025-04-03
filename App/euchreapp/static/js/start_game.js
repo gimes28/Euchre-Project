@@ -155,7 +155,7 @@ $(document).ready(function () {
         $(`.suit-button[data-suit="${upCardSuit}"]`).prop("disabled", true);
 
         // Disable the pass button if player is the dealer
-        if (player === dealer) {
+        if (player === gameResponse.dealer) {
             $("#reject-trump-button").prop("disabled", true);
         }
 
@@ -208,8 +208,8 @@ $(document).ready(function () {
                 updateKittyDisplay();
 
                 // Update the Player's hand display if they are the dealer (they picked up the up card)
-                if (updated_hand && dealer === "Player") {
-                    updateDealerHand(dealer, updated_hand);
+                if (updated_hand) {
+                    updatePlayerHand("Player", updated_hand);
                 }
 
                 // Update UI with the new trump suit
@@ -228,7 +228,7 @@ $(document).ready(function () {
         });
     }
 
-    function updateDealerHand(player, cards) {
+    function updatePlayerHand(player, cards) {
         const cardContainer = $(positions["Player"]);
         cardContainer.empty(); // Clear previous cards
 
@@ -349,8 +349,9 @@ $(document).ready(function () {
         $("#accept-trump-button").hide();
         $("#reject-trump-button").hide();
         $("#ok-modal-button").hide();
-        $("#modal-round-button").show();
+        $("#ok-round-button").hide();
         $("#ok-trump-button").hide();
+        $("#modal-round-button").show();
 
         $("#modal-round-button").off("click").on("click", function () {
             $("#modal-round").fadeOut();
@@ -363,6 +364,11 @@ $(document).ready(function () {
 
     // Start the game
     $("#start-game-button").click(function () {
+
+        // Hide the start game button
+        $("#start-game-button").hide();
+        $("#start-game-form").hide();
+
         $.ajax({
             url: "/start-game/", // Matches the URL in urls.py
             type: "POST",
@@ -382,7 +388,7 @@ $(document).ready(function () {
                     // ✅ Only add the dealer icon if it's missing
                     if ($(dealerPosition).find(".dealer-icon").length === 0) {
                         $(dealerPosition).prepend(`
-                            <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
+                            <img src="/static/images/dealer-icon.png" alt="Dealer Icon" class="dealer-icon">
                         `);
                     }
                 }
@@ -413,6 +419,8 @@ $(document).ready(function () {
                 gameResponse = response;
                 playerOrder = response.player_order;
                 currentPlayerIndex = 0;
+
+                updateTrumpDisplay(null);
     
                 initializeKitty(response.remaining_cards);
                 displayDealtCards(response);
@@ -425,7 +433,7 @@ $(document).ready(function () {
                     $(dealerPosition).addClass("dealer-highlight");
                     if ($(dealerPosition).find(".dealer-icon").length === 0) {
                         $(dealerPosition).prepend(`
-                            <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
+                            <img src="/static/images/dealer-icon.png" alt="Dealer Icon" class="dealer-icon">
                         `);
                     }
                 }
@@ -512,20 +520,29 @@ $(document).ready(function () {
     }
 
     function updateTrumpDisplay(suit) {
-        const suitImageMap = {
-            "spades": "/static/images/spade.png",
-            "hearts": "/static/images/heart.png",
-            "diamonds": "/static/images/diamond.png",
-            "clubs": "/static/images/club.png"
-        };
+        if (!suit) {
+            $(".bottom-left-column-1").html(`
+                <span>Current Trump</span>
+                <div class="icon-wrapper">
+                    <img src="/static/images/card_suits.png" alt="Select Trump" class="trump-suit-icon">
+                </div>
+            `);
+        } else {
+            const suitImageMap = {
+                "spades": "/static/images/spade.png",
+                "hearts": "/static/images/heart.png",
+                "diamonds": "/static/images/diamond.png",
+                "clubs": "/static/images/club.png"
+            };
 
-        const suitImagePath = suitImageMap[suit];
-        $(".bottom-left-column-1").html(`
-            <span>Current Trump</span>
-            <div class="icon-wrapper">
-                <img src="${suitImagePath}" alt="${suit}" class="trump-suit-icon">
-            </div>
-        `);
+            const suitImagePath = suitImageMap[suit];
+            $(".bottom-left-column-1").html(`
+                <span>Current Trump</span>
+                <div class="icon-wrapper">
+                    <img src="${suitImagePath}" alt="${suit}" class="trump-suit-icon">
+                </div>
+            `);
+        }
     }
 
 
@@ -651,6 +668,8 @@ $(document).ready(function () {
                 gameResponse = response;
                 playerOrder = response.player_order;
                 currentPlayerIndex = 0;
+
+                updateTrumpDisplay(null);
                 
                 initializeKitty(response.remaining_cards);
                 displayDealtCards(response);
@@ -717,7 +736,7 @@ $(document).ready(function () {
             $(dealerPosition).addClass("dealer-highlight");
             if ($(dealerPosition).find(".dealer-icon").length === 0) {
                 $(dealerPosition).prepend(`
-                    <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
+                    <img src="/static/images/dealer-icon.png" alt="Dealer Icon" class="dealer-icon">
                 `);
             }
         } else {
