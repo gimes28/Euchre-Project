@@ -244,12 +244,12 @@ $(document).ready(function () {
         if (currentPlayerIndex < playerOrder.length) {
             if (trumpRound === 1) {
                 setTimeout(() => {
-                if (playerOrder[currentPlayerIndex].is_human == true) {
-                    showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex].name);
-                } else {
-                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], trumpRound, playerOrder);
-                }
-            }, 400); // Delay prevents modal flickering
+                    if (playerOrder[currentPlayerIndex].is_human == true) {
+                        showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex].name);
+                    } else {
+                        determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], trumpRound, playerOrder);
+                    }
+                }, 400); // Delay prevents modal flickering
             } else if (trumpRound === 2) {
                 setTimeout(() => {
                     if (playerOrder[currentPlayerIndex].is_human == true) {
@@ -299,13 +299,21 @@ $(document).ready(function () {
 
                 if (trumpRound === 1) {
                     if (botDecision === 'pass') {
-                        rejectTrump(player, trumpRound);
+                        console.log("Bot passes (round 1)");
+                        $("#game-messages").text(`${player} passes`).fadeIn().delay(800).fadeOut();
+                        setTimeout(() => {
+                            rejectTrump(player, trumpRound);
+                        }, 1200);
                     } else {
                         acceptTrump(player, upCard, trumpRound, goingAlone);
                     }
                 } else if (trumpRound === 2) {
                     if (botDecision === 'pass') {
-                        rejectTrump(player, trumpRound);
+                        console.log("Bot passes (round 2)");
+                        $("#game-messages").text(`${player} passes`).fadeIn().delay(800).fadeOut();
+                        setTimeout(() => {
+                            rejectTrump(player, trumpRound);
+                        }, 1200);
                     } else {
                         acceptTrump(player, botDecision, trumpRound, goingAlone);
                     }
