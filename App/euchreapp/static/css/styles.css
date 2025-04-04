@@ -443,3 +443,25 @@
     font-weight: bold;
     color: #721c24;
 }
+
+.trump-caller-indicator {
+    height: 1em;
+    width: auto;
+    vertical-align: middle;
+    margin-left: 2px;
+}
+
+.left-indicator {
+    transform: rotate(90deg);
+    vertical-align: bottom;
+}
+
+.right-indicator {
+    transform: rotate(90deg);
+    vertical-align: bottom;
+}
+
+.loner-partner {
+    opacity: 0.5;
+    position: relative;
+}
