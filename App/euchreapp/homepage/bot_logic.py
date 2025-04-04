@@ -67,9 +67,6 @@ class BotLogic:
             will_go_alone = hand_score >= threshold['loner'] and (up_card.rank != 'J' or position not in ['first', 'third'])
 
             decision = trump_suit if hand_score >= threshold['normal'] else 'pass'
-
-            # if position == 'first' and 0.4 <= hand_score <= 0.6:
-            #     print(f"{position} seat (round 1):{decision} with hand (up card: {up_card}): (HAND SCORE: {hand_score})\n {' '.join([str(card) for card in temp_hand])} ({will_go_alone})")
             
             return trump_suit if hand_score >= threshold['normal'] else 'pass', will_go_alone
         
@@ -171,9 +168,6 @@ class BotLogic:
                 elif should_call_reverse:
                     decision = reverse_suits[0] if reverse_suit_score_1 >= reverse_suit_score_2 else reverse_suits[1]
                     will_go_alone = should_go_alone_reverse
-            
-            # if position == 'dealer':
-            #     print(f"{position} seat (round {trump_round}): {decision} with hand (cannot call {up_card.suit}): (SCORES - next ({next_suit}): {next_suit_score:.3f}, {reverse_suits[0]}: {reverse_suit_score_1:.3f}, {reverse_suits[1]}: {reverse_suit_score_2:.3f})\n {' '.join([str(card) for card in hand])} ({will_go_alone})")
             
             return decision, will_go_alone
         
@@ -387,7 +381,7 @@ class BotLogic:
             lead_suit_cards = [card for card in hand if card.suit == lead_suit and not card.is_left_bower(trump_suit)]
 
         # Get lowest card in hand
-        lowest_card = min(hand, key=lambda x: BotLogic.euchre_rank(x, trump_suit, lead_suit))
+        lowest_card = self.get_worst_card(hand, trump_suit)
 
         if lead_suit_cards:
             high_lead = max(lead_suit_cards, key=lambda x: BotLogic.euchre_rank(x, trump_suit, lead_suit))
@@ -442,8 +436,8 @@ class BotLogic:
                 # Play the highest trump necessary to take the lead
                 return min(winning_trump_cards, key=lambda x: BotLogic.euchre_rank(x, trump_suit))
             else:
-                # Cannot win trick, so play lowest card # TODO: making a void could be more valuable than playing lowest card
-                return lowest_card  
+                # Cannot win trick, so play lowest card
+                return lowest_card 
 
     def choose_lead_card(self, hand, trump_suit, previous_tricks, partner_called_trump, player_called_trump, opponent_called_trump, player_going_alone, tricks_won):
         """

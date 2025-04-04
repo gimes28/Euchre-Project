@@ -656,18 +656,13 @@ def sort_hand(hand, trump_suit=None):
         suit_order = {'hearts': 0, 'diamonds': 1, 'clubs': 2, 'spades': 3}
 
         if trump_suit:
-            print(f"Sorted hand with trump suit: {card}")
             if card.is_right_bower(trump_suit):
-                print(f"Right bower: {card}")
                 suit_group = 0
             elif card.is_left_bower(trump_suit):
-                print(f"Left bower: {card}")
                 suit_group = 1
             elif card.suit == trump_suit:
-                print(f"Trump: {card}")
                 suit_group = 2
             else:
-                print(f"Other: {card}")
                 suit_group = suit_order.get(card.suit, 4) + 3
         else:
             suit_group = suit_order.get(card.suit, 4)

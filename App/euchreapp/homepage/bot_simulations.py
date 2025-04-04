@@ -432,5 +432,5 @@ class MonteCarloSimulation():
         
 if __name__ == "__main__":
     simulation = MonteCarloSimulation()
-    simulation.run_simulation(1000000)
+    simulation.run_simulation(10000)
     # simulation.print_hand_scores("A of diamonds, A of hearts, J of spades, J of diamonds, J of hearts", "diamonds")
