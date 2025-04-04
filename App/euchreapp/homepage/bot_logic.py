@@ -28,22 +28,9 @@ class BotLogic:
         trump_suit = up_card.suit
         position = self.get_seat_position(player_order)
 
-        if trump_round == "1":
-            # If you are dealer, in the first round, your hand should contain the up card and discard a card
-            if self.name == dealer.name:
-                # Dealer should analyze their hand as if they already picked up the up card
-                temp_hand = list(hand)
-                temp_hand.append(up_card)
-
-                # Discard a card
-                discarded_card = self.get_worst_card(temp_hand, up_card.suit)
-                temp_hand.remove(discarded_card)
-
-                hand_score = self.evaluate_hand(temp_hand, trump_suit)
-            else:
-                hand_score = self.evaluate_hand(hand, trump_suit)
-
-            first_round_position_thresholds = {
+        # Thresholds for both rounds of trump selection
+        thresholds = {
+            'round1': {
                 'first': {
                     'normal': 0.33,
                     'loner': 0.51
@@ -60,19 +47,8 @@ class BotLogic:
                     'normal': 0.26,
                     'loner': 0.47
                 }
-            }
-
-            threshold = first_round_position_thresholds[position]
-            # Go alone if hand is strong enough. However, if the up card is the right bower, first and third seat should not go alone
-            will_go_alone = hand_score >= threshold['loner'] and (up_card.rank != 'J' or position not in ['first', 'third'])
-
-            decision = trump_suit if hand_score >= threshold['normal'] else 'pass'
-            
-            return trump_suit if hand_score >= threshold['normal'] else 'pass', will_go_alone
-        
-        if trump_round == "2":
-
-            second_round_thresholds = {
+            },
+            'round2': {
                 'first': {
                     'next': {
                         'normal': 0.2,
@@ -114,6 +90,46 @@ class BotLogic:
                     }
                 }
             }
+        }
+
+        if trump_round == "1":
+            # If you are dealer, in the first round, your hand should contain the up card and discard a card
+            if self.name == dealer.name:
+                # Dealer should analyze their hand as if they already picked up the up card
+                temp_hand = list(hand)
+                temp_hand.append(up_card)
+
+                # Discard a card
+                discarded_card = self.get_worst_card(temp_hand, up_card.suit)
+                temp_hand.remove(discarded_card)
+
+                hand_score = self.evaluate_hand(temp_hand, trump_suit)
+            else:
+                hand_score = self.evaluate_hand(hand, trump_suit)
+
+            first_round_thresholds = thresholds['round1']
+
+            position_threshold = first_round_thresholds[position]
+            # Go alone if hand is strong enough. However, if the up card is the right bower, first and third seat should not go alone
+            will_go_alone = hand_score >= position_threshold['loner'] and (up_card.rank != 'J' or position not in ['first', 'third'])
+
+            decision = trump_suit if hand_score >= position_threshold['normal'] else 'pass'
+
+            # If you are in first seat with a callable hand, you should compare to the second round threshold because you will get first chance to call
+            if position == 'first' and decision != 'pass':
+                next_hand_score = self.evaluate_hand(hand, self.SUIT_PAIRS[trump_suit])
+                hand_score_margin = hand_score - position_threshold['normal']
+                next_hand_score_margin = next_hand_score - thresholds['round2'][position]['next']['normal']
+
+                if next_hand_score_margin > hand_score_margin:
+                    decision = 'pass'
+                    will_go_alone = False
+            
+            return decision, will_go_alone
+        
+        if trump_round == "2":
+
+            second_round_thresholds = thresholds['round2']
 
             next_suit = up_card.next_suit()
 
