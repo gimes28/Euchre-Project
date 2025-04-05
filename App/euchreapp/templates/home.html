@@ -63,8 +63,8 @@
                         <div class="center-bottom-text">Player</div>
                         <div class="center-right-text">Opponent 2</div>
 
-                        <div id="game-messages" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0, 0, 0, 0.7); color: white; padding: 10px; border-radius: 5px; z-index: 1000;"></div>
-
+                        <!-- Bot passing message -->
+                        <div id="bot-messages"></div>
                         
                         <!-- Custom Modal inside center rectangle -->
                         <div id="modal-dealer" class="custom-modal">
@@ -98,14 +98,30 @@
                                 <!-- Dynamic content will be injected here -->
                             </div>
                             <div class="modal-actions">
-                                <button class="ui primary button" id="accept-trump-button">Order Up</button>
+                                <div class="button-group">
+                                    <button class="ui primary button" id="accept-trump-button">Order Up</button>
+                                    <button class="ui primary button" id="ok-trump-button" style="display: none;">OK</button>
+                                    <button class="ui primary button" id="restart-trump-button" style="display: none;">Next Round</button>
+                                    <button class="ui button suit-button" id="select-clubs" data-suit="clubs">
+                                        <img src="{% static 'images/club.png' %}" alt="Clubs" class="trump-suit-image">
+                                    </button>
+                                    <button class="ui button suit-button" id="select-diamonds" data-suit="diamonds">
+                                        <img src="{% static 'images/diamond.png' %}" alt="Diamonds" class="trump-suit-image">
+                                    </button>
+                                    <button class="ui button suit-button" id="select-hearts" data-suit="hearts">
+                                        <img src="{% static 'images/heart.png' %}" alt="Hearts" class="trump-suit-image">
+                                    </button>
+                                    <button class="ui button suit-button" id="select-spades" data-suit="spades">
+                                        <img src="{% static 'images/spade.png' %}" alt="Spades" class="trump-suit-image">
+                                    </button>
+                                </div>
                                 <button class="ui button" id="reject-trump-button">Pass</button>
-                                <button class="ui primary button" id="ok-trump-button" style="display: none;">OK</button>
-                                <button class="ui primary button" id="restart-trump-button" style="display: none;">Next Round</button>
-                                <button class="ui button suit-button" id="select-clubs" data-suit="clubs">Clubs</button>
-                                <button class="ui button suit-button" id="select-diamonds" data-suit="diamonds">Diamonds</button>
-                                <button class="ui button suit-button" id="select-hearts" data-suit="hearts">Hearts</button>
-                                <button class="ui button suit-button" id="select-spades" data-suit="spades">Spades</button>
+                                <div class="alone-option">
+                                    <div class="ui toggle checkbox">
+                                        <input type="checkbox" id="going-alone-checkbox">
+                                        <label>Go Alone?</label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

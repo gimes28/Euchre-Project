@@ -285,12 +285,14 @@
     transform: translate(-50%, -50%); /* Centering trick */
     width: 80%; /* Adjust width as needed */
     max-width: 500px; /* Prevents it from getting too wide */
-    background-color: white;
-    border: 1px solid #333;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    background-color: rgb(255, 255, 255, 0.0);
+    border: 0px solid #333;
+    border-radius: 8px; /* Add rounded edges */
+    /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); */
     padding: 20px;
     z-index: 10; /* Ensures it appears above other elements */
     display: none; /* Hidden by default */
+    color: white;
 }
 
 .custom-modal .modal-header {
@@ -465,3 +467,77 @@
     opacity: 0.5;
     position: relative;
 }
+
+.trump-suit-options-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+#bot-messages {
+    display: none; 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    background-color: rgba(0, 0, 0, 0.4); 
+    color: white; 
+    padding: 10px; 
+    border-radius: 5px; 
+    z-index: 1000;
+}
+
+.trump-suit-image {
+    width: auto;
+    height: 25px;
+}
+
+.modal-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px; /* Space between toggle and buttons */
+}
+
+.alone-option {
+    margin-bottom: 5px;
+    color: white;
+}
+
+.alone-option .ui.checkbox label {
+    color: white;
+}
+
+.alone-option .ui.toggle.checkbox .box:before,
+.alone-option .ui.toggle.checkbox label:before {
+    background-color: rgba(255, 255, 255, 0.518) !important;
+}
+
+.alone-option .ui.toggle.checkbox input:checked ~ label,
+.alone-option .ui.toggle.checkbox input:focus ~ label {
+    color: white !important;
+}
+
+.alone-option .ui.toggle.checkbox input:checked ~ .box:before,
+.alone-option .ui.toggle.checkbox input:checked ~ label:before {
+    background-color: #2185d0 !important;  /* Blue when checked */
+}
+
+.alone-option .ui.toggle.checkbox input:focus:not(:checked) ~ .box:before,
+.alone-option .ui.toggle.checkbox input:focus:not(:checked) ~ label:before {
+    background-color: rgba(255, 255, 255, 0.518) !important;  /* White when focused but not checked */
+}
+
+.modal-actions button {
+    box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.modal-actions .button-group .suit-button {
+    box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+#accept-trump-button, #reject-trump-button {
+    box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.3);
+}
+

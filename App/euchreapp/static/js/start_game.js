@@ -9,7 +9,9 @@ $(document).ready(function () {
     // Reset Current Trump and Game Score on Page Load
     $("#current-trump").text("None");
     $("#game-score").text("Player Team: 0 | Opponent Team: 0");
-
+    
+    // Initialize Semantic UI checkbox
+    $('.ui.toggle.checkbox').checkbox();
 
     // Map cards to their positions
     const positions = {
@@ -104,13 +106,10 @@ $(document).ready(function () {
         $("#reject-trump-button").show();
         $("#accept-trump-button").show();
         $(".suit-button").hide();
+        $("#going-alone-checkbox").show();
+        $("#going-alone-checkbox").prop("checked", false);
         $("#modal-trump .modal-content").html(`
-            <p><strong>Trump Card:</strong> ${card}</p>
-            <p><strong>${player}</strong>, do you want to make this the trump card?</p>
-            <div class="going-alone-option">
-                <input type="checkbox" id="going-alone-checkbox">
-                <label for="going-alone-checkbox">Go Alone?</label>
-            </div>
+            <img src="${getCardImage(card)}" class="playing-card" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%);" alt="Up Card">
         `);
 
         $("#reject-trump-button").prop("disabled", false);
@@ -139,12 +138,9 @@ $(document).ready(function () {
         $("#reject-trump-button").show();
         $("#accept-trump-button").hide();
         $(".suit-button").show();
+        $("#going-alone-checkbox").show();
+        $("#going-alone-checkbox").prop("checked", false);
         $("#modal-trump .modal-content").html(`
-            <p><strong>${player}</strong>, select a trump suit or pass:</p>
-            <div class="going-alone-option">
-                <input type="checkbox" id="going-alone-checkbox">
-                <label for="going-alone-checkbox">Go Alone?</label>
-            </div>
         `);
 
         // Enable all suit buttons
@@ -336,21 +332,19 @@ $(document).ready(function () {
 
                 if (trumpRound === 1) {
                     if (botDecision === 'pass') {
-                        console.log("Bot passes (round 1)");
-                        $("#game-messages").text(`${player} passes`).fadeIn().delay(800).fadeOut();
+                        $("#bot-messages").text(`${player} passes`).fadeIn().delay(400).fadeOut();
                         setTimeout(() => {
                             rejectTrump(player, trumpRound);
-                        }, 1200);
+                        }, 800);
                     } else {
                         acceptTrump(player, upCard, trumpRound, goingAlone);
                     }
                 } else if (trumpRound === 2) {
                     if (botDecision === 'pass') {
-                        console.log("Bot passes (round 2)");
-                        $("#game-messages").text(`${player} passes`).fadeIn().delay(800).fadeOut();
+                        $("#bot-messages").text(`${player} passes`).fadeIn().delay(400).fadeOut();
                         setTimeout(() => {
                             rejectTrump(player, trumpRound);
-                        }, 1200);
+                        }, 800);
                     } else {
                         acceptTrump(player, botDecision, trumpRound, goingAlone);
                     }
@@ -650,7 +644,7 @@ $(document).ready(function () {
     function showRoundResults(results) {
         let winningMessage = results.winning_team
             ? `<p><strong>${results.winning_team} won the game!</strong></p>`
-            : `<p>Current Score - Player Team: ${results.team1_points} | Opponent Team: ${results.team2_points}</p>`;
+            : ``;
 
         // Update game score display
         updateGameScore(results.team1_points, results.team2_points);
