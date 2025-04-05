@@ -419,7 +419,7 @@ class BotLogic:
                 # Opponent is winning, so play highest card if you can win trick
                 if BotLogic.euchre_rank(high_lead, trump_suit) > BotLogic.euchre_rank(winning_played_card.card, trump_suit):
                     return high_lead
-                
+
             return low_lead
         
         played_trump_cards = self.get_trump_cards([card.card for card in played_cards], trump_suit)
@@ -440,7 +440,7 @@ class BotLogic:
             else:
                 # Player has no trump cards, so play lowest card
                 return lowest_card
-                
+
         # Trump cards have been played
         if is_partner_winning:
             # Partner is winning with a trump card
@@ -537,7 +537,7 @@ class BotLogic:
             elif not any(played_card.card.is_left_bower(suit) for played_card in all_previous_cards):
                 return "J", BotLogic.SUIT_PAIRS[suit] # Get left bower suit
 
-            # Both bowers have been played already    
+            # Both bowers have been played already
             card_ranks.remove("J")
 
         # Get all previous cards of the relevant suit
