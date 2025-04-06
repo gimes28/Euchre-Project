@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import random
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -535,6 +536,9 @@ class Bot(Player):
         """
         highest_card = self.get_boss_card(card.card.suit, previous_cards)
 
+        if not highest_card:
+            return False
+
         return card.card.rank == highest_card.rank and card.card.suit == highest_card.suit
 
     def has_boss_card(self, hand, suit, previous_cards):
@@ -651,7 +655,6 @@ class MonteCarloSimulation():
         """
         Runs a simulation to determine the call percentage for each seat position in order to tweak thresholds and strategy weights
         """
-        import random
         import time
 
         # Initialize Table
@@ -1044,17 +1047,45 @@ class MonteCarloSimulation():
         card_win_stats = defaultdict(lambda: {'wins': 0, 'total': 0})
         player_team = [bot for bot in play_order if bot.name == "Player"][0].team
 
+        # Create a deck of all possible (excluding the player's hand and the previous cards)
+        suits = ["hearts", "diamonds", "clubs", "spades"]
+        ranks = ["A", "K", "Q", "J", "10", "9"]
+        all_cards = [Card(rank=rank, suit=suit) for suit in suits for rank in ranks]
+        
+        sim_previous_cards = copy.deepcopy(original_state["previous_cards"])
+
+        # Remove the player's hand and the previous cards
+        known_cards = []
+        for played_card in player_hand:
+            known_cards.append(played_card.card)
+        for played_card in sim_previous_cards:
+            known_cards.append(played_card.card)
+
+        unknown_cards = [card for card in all_cards if card not in known_cards]
+
         for card in player_hand:
             card_str = card.get_card()
 
             for _ in range(num_simulations):
                 # Deep copy the game state so each sim is fresh
-                sim_hands = copy.deepcopy(original_state["dealt_hands"])
+                # sim_hands = copy.deepcopy(original_state["dealt_hands"])
                 sim_players = copy.deepcopy(play_order)
-                sim_previous_cards = copy.deepcopy(original_state["previous_cards"])
 
                 # Force player to play this card first
-                sim_hands["Player"] = [c for c in sim_hands["Player"] if c.get_card() != card.get_card()]
+                sim_hands = {}
+                sim_hands["Player"] = [c for c in player_hand if c.get_card() != card_str]
+                remaining_cards = unknown_cards.copy()
+                random.shuffle(remaining_cards)
+
+                # Deal bot hands randomly from list of possible cards
+                card_index = 0
+                for bot in sim_players:
+                    if bot.name != "Player":
+                        cards_to_deal = 5 - len(sim_previous_cards)
+                        bot_cards = [PlayedCard(card=c, player=bot) for c in remaining_cards[card_index:card_index + cards_to_deal]]
+                        sim_hands[bot.name] = bot_cards
+                        card_index += cards_to_deal
+
                 trick = [card]
 
                 # Let others play their card in this trick using minimal logic
@@ -1121,6 +1152,6 @@ class MonteCarloSimulation():
         return card_probabilities
 
 # TEMPORARY DATA GENERATION 
-#if __name__ == "__main__":
-#    simulation = MonteCarloSimulation()
-#    simulation.run_simulation(100)
+if __name__ == "__main__":
+   simulation = MonteCarloSimulation()
+   simulation.run_simulation(100)

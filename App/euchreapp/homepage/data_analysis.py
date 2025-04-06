@@ -167,21 +167,21 @@ class Random_Forest_Model():
         print(f"Win Probability R² Score: {prob_r2:.4f}")
 
 # TEMPORARY DATA GENERATION 
-#if __name__ == "__main__":
-#    Data = Data_Encoding()
-#    Model = Random_Forest_Model()
+if __name__ == "__main__":
+   Data = Data_Encoding()
+   Model = Random_Forest_Model()
 
-#    X, y_card, y_prob, card_encoder, label_encoders = Data.decode_data()
+   X, y_card, y_prob, card_encoder, label_encoders = Data.decode_data()
     
-#    df = pd.read_csv(FILENAME_TEMP)
+   df = pd.read_csv(FILENAME_TEMP)
 
-#    Model.Train_Model(X, y_card, y_prob, card_encoder)
+   Model.Train_Model(X, y_card, y_prob, card_encoder)
 
-#    print("Running Random Forest for best card")
-#    rf_card = RandomForestClassifier(n_estimators=100, random_state=RANDOM_STATE)
-#    rf_card.fit(X, y_card)
+   print("Running Random Forest for best card")
+   rf_card = RandomForestClassifier(n_estimators=100, random_state=RANDOM_STATE)
+   rf_card.fit(X, y_card)
 
 
-#    print("Running Random Forest for winning probability")
-#    rf_prob = RandomForestRegressor(n_estimators=100, random_state=RANDOM_STATE)
-#    rf_prob.fit(X, y_prob)
+   print("Running Random Forest for winning probability")
+   rf_prob = RandomForestRegressor(n_estimators=100, random_state=RANDOM_STATE)
+   rf_prob.fit(X, y_prob)
