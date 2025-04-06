@@ -28,9 +28,16 @@
 
         <!-- Toolbar Section -->
         <div class="ui menu">
-            <a class="item active" href="/">Home</a>
-            <a class="item" href="/todolist/">Todo List</a>
-            <a class="item" href="/about/">About</a>
+            <a class="item {% if request.path == '/' %}active{% endif %}" href="/">Home</a>
+            <a class="item {% if request.path == '/todolist/' %}active{% endif %}" href="/todolist/">Todo List</a>
+            <a class="item {% if request.path == '/about/' %}active{% endif %}" href="/about/">About</a>
+            <div class="ui dropdown item">
+                Settings
+                <i class="dropdown icon"></i>
+                <div class="menu">
+                    <div class="item" id="toggle-tooltips">Settings</div>
+                </div>
+            </div>
             <div class="right menu">
                 {% if user.is_authenticated %}
                     <span class="item">Welcome, {{ user.username }}!</span>
@@ -68,7 +75,14 @@
                         
                         <!-- Custom Modal inside center rectangle -->
                         <div id="modal-dealer" class="custom-modal">
-                            <div class="modal-header">Dealer for This Round</div>
+                            <div class="tooltip-label">
+                                <div class="modal-header">Dealer for This Round</div>
+                                <img src="{% static 'images/tooltip.png' %}" 
+                                    alt="Tooltip" 
+                                    class="tooltip-icon" 
+                                    data-tooltip-id="dealer" 
+                                    title="Click to learn more!">
+                            </div>
                             <div class="modal-content">
                                 <!-- Dynamic content will be injected here by JavaScript -->
                             </div>
@@ -133,7 +147,14 @@
             <!-- Right Column: Previous Tricks & Remaining Cards -->
             <div class="right-column">
                 <div class="right-div">
-                    <strong>Tricks this Round</strong>         
+                    <div class="tooltip-label">
+                        <strong>Tricks this Round</strong>
+                        <img src="{% static 'images/tooltip.png' %}" 
+                            alt="Tooltip" 
+                            class="tooltip-icon" 
+                            data-tooltip-id="tricks" 
+                            title="Click to learn more!">
+                    </div>      
                     <div id="previous-tricks-container" style="padding-top: 10px;">
                         <!-- Table for Player & Teammate -->
                         <div class="trick-table">
@@ -179,7 +200,14 @@
                 
         
                 <div class="bottom-right">
-                    <strong>Kitty</strong>
+                    <div class="tooltip-label">
+                        <strong>Kitty</strong>
+                        <img src="{% static 'images/tooltip.png' %}" 
+                            alt="Tooltip" 
+                            class="tooltip-icon" 
+                            data-tooltip-id="kitty" 
+                            title="Click to learn more!">
+                    </div>
                     <div id="remaining-cards-list"></div>
                 </div>
             </div>
@@ -188,16 +216,44 @@
             <div class="bottom-div">
                 <div class="bottom-left">
                     <div class="bottom-left-column-1">
-                        <strong>Current Trump</strong>
+                        <div class="tooltip-label">
+                            <strong>Current Trump</strong>
+                            <img src="{% static 'images/tooltip.png' %}" 
+                                alt="Tooltip" 
+                                class="tooltip-icon" 
+                                data-tooltip-id="trump" 
+                                title="Click to learn more!">
+                        </div>
                     </div>
                     <div class="bottom-left-column-2">
-                        <strong>Game Score</strong>
+                        <div class="tooltip-label">
+                            <strong>Game Score</strong>
+                            <img src="{% static 'images/tooltip.png' %}" 
+                                alt="Tooltip" 
+                                class="tooltip-icon" 
+                                data-tooltip-id="score" 
+                                title="Click to learn more!">
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Tooltip Modal -->
+        <div id="tooltip-modal" class="ui modal">
+            <div class="header">Euchre Tips</div>
+            <div class="content">
+                <p id="tooltip-content"></p>
+            </div>
+            <div class="actions">
+                <div class="ui approve button">OK</div>
+            </div>
+        </div>
         
-    <!-- Startgame AJAX promise -->
+    <!-- Startgame js logic -->
     <script src="{% static 'js/start_game.js' %}"></script>
+    <!-- Tooltip js logic -->
+    <script src="{% static 'js/tooltip_messages.js' %}"></script>
+    <script src="{% static 'js/tooltips.js' %}"></script>
 </body>
 </html>

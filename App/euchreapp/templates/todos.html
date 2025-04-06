@@ -27,9 +27,9 @@
     
         <!-- Toolbar Section -->
         <div class="ui menu">
-            <a class="item active" href="/">Home</a>
-            <a class="item" href="/todolist/">Todo List</a>
-            <a class="item" href="/about/">About</a>
+            <a class="item {% if request.path == '/' %}active{% endif %}" href="/">Home</a>
+            <a class="item {% if request.path == '/todolist/' %}active{% endif %}" href="/todolist/">Todo List</a>
+            <a class="item {% if request.path == '/about/' %}active{% endif %}" href="/about/">About</a>
             <div class="right menu">
                 {% if user.is_authenticated %}
                     <span class="item">Welcome, {{ user.username }}!</span>

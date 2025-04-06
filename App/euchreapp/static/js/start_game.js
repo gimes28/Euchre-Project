@@ -575,9 +575,18 @@ $(document).ready(function () {
     }
 
     function updateTrumpDisplay(suit) {
+        const tooltipIconHTML = `
+            <div class="tooltip-label">
+                <strong>Current Trump</strong>
+                <img src="/static/images/tooltip.png"
+                    alt="Tooltip"
+                    class="tooltip-icon"
+                    data-tooltip-id="trump">
+            </div>`;
+    
         if (!suit) {
             $(".bottom-left-column-1").html(`
-                <span>Current Trump</span>
+                ${tooltipIconHTML}
                 <div class="icon-wrapper">
                     <img src="/static/images/card_suits.png" alt="Select Trump" class="trump-suit-icon">
                 </div>
@@ -589,14 +598,29 @@ $(document).ready(function () {
                 "diamonds": "/static/images/diamond.png",
                 "clubs": "/static/images/club.png"
             };
-
             const suitImagePath = suitImageMap[suit];
+    
             $(".bottom-left-column-1").html(`
-                <span>Current Trump</span>
+                ${tooltipIconHTML}
                 <div class="icon-wrapper">
                     <img src="${suitImagePath}" alt="${suit}" class="trump-suit-icon">
                 </div>
             `);
+        }
+    
+        // 🔁 Bind click behavior
+        $(".tooltip-icon").off("click").on("click", function () {
+            const tooltipId = $(this).data("tooltip-id");
+            const message = tooltips[tooltipId] || "Tooltip not found.";
+            $("#tooltip-content").html(message);
+            $("#tooltip-modal").modal("show");
+        });
+    
+        // 👀 Show or hide based on tooltipsEnabled
+        if (window.tooltipsEnabled === false) {
+            $(".tooltip-icon").hide();
+        } else {
+            $(".tooltip-icon").show();
         }
     }
 
@@ -831,17 +855,35 @@ $(document).ready(function () {
         });
     });
     
-    
-    
 
     // Function to update game score
     function updateGameScore(team1, team2) {
         $(".bottom-left-column-2").html(`
-            <span>Game Score</span>
+            <div class="tooltip-label">
+                <strong>Game Score</strong>
+                <img src="/static/images/tooltip.png" 
+                     alt="Tooltip" 
+                     class="tooltip-icon" 
+                     data-tooltip-id="score">
+            </div>
             <p style="padding-top: 30px; font-size: large;">Player Team: ${team1} points</p>
             <p style="padding-top: 10px; font-size: large;">Opponent Team: ${team2} points</p>
         `);
-    }
+    
+        $(".tooltip-icon").off("click").on("click", function () {
+            const tooltipId = $(this).data("tooltip-id");
+            const message = tooltips[tooltipId] || "Tooltip not found.";
+            $("#tooltip-content").html(message);
+            $("#tooltip-modal").modal("show");
+        });
+    
+        // 👀 Respect tooltip toggle state
+        if (window.tooltipsEnabled === false) {
+            $(".tooltip-icon").hide();
+        } else {
+            $(".tooltip-icon").show();
+        }
+    }    
 
     function updateRemainingCards(showCards=false) {
         const redSuits = ["hearts", "diamonds"]; // First row

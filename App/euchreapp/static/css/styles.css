@@ -541,3 +541,60 @@
     box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.3);
 }
 
+
+.tooltip-icon {
+    width: 16px;
+    height: 16px;
+    opacity: 1;
+    /* filter: invert(100%) brightness(1.8); makes it white & brighter */
+    transition: opacity 0.3s ease;
+    cursor: pointer;
+}
+
+.tooltip-icon.disabled {
+    opacity: 0;
+}
+
+.tooltip-label {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    justify-content: center;
+}
+
+/* Highlight the icon on hover */
+.tooltip-icon:hover {
+    filter: invert(64%) sepia(77%) saturate(531%) hue-rotate(68deg) brightness(1.1);
+    transform: scale(1.1);
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+/* Custom hover tooltip bubble */
+.tooltip-icon::after {
+    content: attr(data-hover-text);
+    position: absolute;
+    bottom: 125%; /* above the icon */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #333;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 5px;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 5000;
+}
+
+/* Show tooltip on hover */
+.tooltip-icon:hover::after {
+    opacity: 1;
+}
+
+#tooltip-modal .content {
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
