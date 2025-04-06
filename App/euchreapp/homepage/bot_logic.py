@@ -1,6 +1,5 @@
-
-class BotLogic: 
-    SUITS_PAIRS = {
+class BotLogic:    
+    SUIT_PAIRS = {
         'hearts': 'diamonds',
         'diamonds': 'hearts',
         'clubs': 'spades',
@@ -366,7 +365,8 @@ class BotLogic:
         if len(hand) == 1:
             return hand[0]
 
-        partner_called_trump = trump_caller.name == self.partner
+        partner_called_trump = trump_caller.team == self.team
+
         player_called_trump = trump_caller.name == self.name
         opponent_called_trump = not partner_called_trump and not player_called_trump # TODO: It can be useful to know which opponent called trump specifically as that can change the card to play
         player_going_alone = going_alone and player_called_trump
