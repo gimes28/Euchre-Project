@@ -1,3 +1,33 @@
+import pandas as pd
+import os
+
+
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data_storage")
+
+FILENAME = os.path.join(DATA_DIR, "game_data.csv")
+
+COLUMNS = [ "game_id", "round_id", "team1_score", "team2_score",
+          "team1_round_score", "team2_round_score",
+            "seat_position", "is_dealer", "partner_is_dealer",
+            "trump_suit", "hand", "known_cards", "card_to_evaluate", 
+            "card_to_play", "win_probability"
+]
+class Table():
+  def init_table():
+    # Create DataFrame
+    df = pd.DataFrame([], columns=COLUMNS)
+    df.to_csv(FILENAME, index=False, header=True)
+
+  def update_table(game_state):
+    # Create new df
+    df = pd.DataFrame([game_state])
+
+    # Save to CSV
+    df.to_csv(FILENAME, mode='a', index=False, header=False)
+
+
+
 class Player():
     def __init__(self, name, partner, team):
         self.name = name
@@ -6,7 +36,6 @@ class Player():
 
     def __str__(self):
         return self.name
-
 
 class Card():
     SUITS = [('hearts', 'Hearts'), ('diamonds', 'Diamonds'), ('clubs', 'Clubs'), ('spades', 'Spades')]
@@ -57,7 +86,17 @@ class PlayedCard():
         self.card = card
 
     def __str__(self):
-        return f"{self.player.name} played {self.card.rank} of {self.card.suit}"
+        return f"{self.player.name} has {self.card.rank} of {self.card.suit}"
+
+    def __str__(self):
+        return f"{self.card.rank} of {self.card.suit}"
+
+    def __repr__(self):
+        return str(f"{self.card.rank} of {self.card.suit}")
+
+
+    def get_card(self):
+        return str(f"{self.card.rank} of {self.card.suit}")
 
 class Bot(Player):
     def __init__(self, name, partner, team):
@@ -90,34 +129,41 @@ class Bot(Player):
                 hand_score = self.evaluate_hand(hand, trump_suit)
 
             first_round_position_thresholds = {
-                'first': 0.42,
-                'second': 0.35,
-                'third': 0.44,
-                'dealer': 0.375
+                'first': 0.55,
+                'second': 0.45,
+                'third': 0.60,
+                'dealer': 0.40
             }
 
             threshold = first_round_position_thresholds[position]
 
-            return trump_suit if hand_score >= threshold else 'pass'
+            if hand_score >= threshold:
+                #for card in hand:
+                  #print(f"{card}")
+                #print(f"{hand_score} >= {first_round_position_thresholds[position]}")
+                #print(f"Round 1 {trump_suit}")
+                return trump_suit
+            else:
+                return 'pass'
 
         if trump_round == "2":
 
             second_round_thresholds = {
                 'first': {
-                    'next': 0.275,
+                    'next': 0.4,
                     'reverse': 0.4
                 },
                 'second': {
-                    'next': 0.45,
-                    'reverse': 0.275
+                    'next': 0.35,
+                    'reverse': 0.30
                 },
                 'third': {
-                    'next': 0.3,
-                    'reverse': 0.375
+                    'next': 0.4,
+                    'reverse': 0.4
                 },
                 'dealer': {
-                    'next': 0.35,
-                    'reverse': 0.25
+                    'next': 0.01,
+                    'reverse': 0.01
                 }
             }
 
@@ -141,7 +187,12 @@ class Bot(Player):
                     (reverse_suits[1], reverse_suit_score_2)
                 ]
 
-                best_suit, _ = max(options, key=lambda x: x[1])
+                best_suit, score = max(options, key=lambda x: x[1])
+
+                #for card in hand:
+                #  print(f"{card}")
+                #print(f"{score} >= {seat_thresholds}")
+                #print(f"Round 2 {best_suit}")
                 return best_suit
 
             should_call_next = next_suit_score >= seat_thresholds['next']
@@ -150,13 +201,44 @@ class Bot(Player):
             # If all suits are higher than threshold, choose the suit that is greater than the threshold by the most
             if should_call_next and should_call_reverse:
                 if next_suit_score - seat_thresholds['next'] >= reverse_suit_score_1 - seat_thresholds['reverse'] or reverse_suit_score_2 - seat_thresholds['reverse']:
+                    #for card in hand:
+                    #  print(f"{card}")
+                    #print(f"{next_suit_score} >= {seat_thresholds['next']}")
+                    #print(f"Round 2 {next_suit}")
                     return next_suit
                 else:
-                    return reverse_suits[0] if reverse_suit_score_1 >= reverse_suit_score_2 else reverse_suits[1]
+                    if reverse_suit_score_1 >= reverse_suit_score_2:
+                      #for card in hand:
+                      #  print(f"{card}")
+                      #print(f"{reverse_suit_score_1} >= {seat_thresholds['reverse']}")
+                      #print(f"Round 2 {next_suit}")
+                      return reverse_suits[0]
+                    else:
+                      #for card in hand:
+                      #  print(f"{card}")
+                      #print(f"{reverse_suit_score_2} >= {seat_thresholds['reverse']}")
+                      #print(f"Round 2 {next_suit}")
+                      return reverse_suits[1]
+
             elif should_call_next:
+                #for card in hand:
+                #  print(f"{card}")
+                #print(f"{next_suit_score} >= {seat_thresholds['next']}")
+                #print(f"Round 2 {next_suit}")
                 return next_suit
             elif should_call_reverse:
-                return reverse_suits[0] if reverse_suit_score_1 >= reverse_suit_score_2 else reverse_suits[1]
+                if reverse_suit_score_1 >= reverse_suit_score_2:
+                  #for card in hand:
+                  #  print(f"{card}")
+                  #print(f"{reverse_suit_score_1} >= {seat_thresholds['reverse']}")
+                  #print(f"Round 2 {next_suit}")
+                  return reverse_suits[0]
+                else:
+                  #for card in hand:
+                  #  print(f"{card}")
+                  #print(f"{reverse_suit_score_2} >= {seat_thresholds['reverse']}")
+                  #print(f"Round 2 {next_suit}")
+                  return reverse_suits[1]
 
             return 'pass'
 
@@ -275,9 +357,11 @@ class Bot(Player):
         if len(hand) == 1:
             return hand[0]
 
-        partner_called_trump = trump_caller.name == self.partner
+        partner_called_trump = trump_caller.team == self.team
+
         player_called_trump = trump_caller.name == self.name
-        opponent_called_trump = not partner_called_trump and not player_called_trump # TODO: It can be useful to know which opponent called trump specifically as that can change the card to play
+
+        opponent_called_trump = trump_caller.team != self.team # TODO: It can be useful to know which opponent called trump specifically as that can change the card to play
 
         # Check if you are leading
         if not played_cards:
@@ -373,32 +457,40 @@ class Bot(Player):
         # Get all cards that are the highest card in the suit remaining
         boss_cards = self.get_boss_cards_in_hand(hand, trump_suit, previous_cards)
 
-        # Lead strong if partner called trump
-        if partner_called_trump and trump_cards:
-            return max(trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
 
         # If you called trump and have highest trump, lead it
         if player_called_trump:
             have_highest_trump = self.has_boss_card(hand, trump_suit, previous_cards)
             if have_highest_trump:
+                #print("Lead with Right Bower - Player has High Trump")
                 return max(trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
             elif len(trump_cards) > 1:
+                #print("Lead with Lower Trump - Player has Lower Trump")
                 return min(trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
+
+        # Lead strong if partner called trump
+        if partner_called_trump and trump_cards:
+            #print("Lead with strong card - Partner called")
+            return max(trump_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
 
         # If opponents called, lead boss off suit if you have it or lead low
         if opponent_called_trump:
             if boss_cards:
+                #print("Lead with High off-suit - opponent called")
                 return max(boss_cards, key=lambda x: Card.euchre_rank(x.card, trump_suit))
             else:
+                #print("Lead with Low off-suit - opponent called")
                 return min(hand, key=lambda x: Card.euchre_rank(x.card, trump_suit))
 
         # Lead highest off suit if it is a boss card
         if boss_cards:
             non_trump_boss = [card for card in boss_cards if card.card.suit != trump_suit]
             if non_trump_boss:
+                #print("Lead with High off-suit - No trump but High Off")
                 return max(non_trump_boss, key=lambda x: Card.euchre_rank(x.card, trump_suit))
 
         # Otherwise, simply lead lowest card
+        #print("Lead with Low off-suit")
         return min(hand, key=lambda x: Card.euchre_rank(x.card, trump_suit))
 
     def get_boss_cards_in_hand(self, hand, trump_suit, previous_cards):
@@ -523,6 +615,7 @@ class MonteCarloSimulation():
         self.dealer_count = {}
         self.dealer_calls = {}
         self.dealer_points = {}
+        self.player_card_stats = {}
 
         # Track team-level data
         self.team_calls = {1: 0, 2: 0}
@@ -531,10 +624,10 @@ class MonteCarloSimulation():
         self.team_points = {1: 0, 2: 0}
     def initialize_bots(self):
         bots = [
-            Bot("Bot 1", partner="Bot 3", team=1),
-            Bot("Bot 2", partner="Bot 4", team=2),
-            Bot("Bot 3", partner="Bot 1", team=1),
-            Bot("Bot 4", partner="Bot 2", team=2)
+            Bot(name="Player", partner="Bot 3", team=1),
+            Bot(name="Bot 2", partner="Bot 4", team=2),
+            Bot(name="Bot 3", partner="Player", team=1),
+            Bot(name="Bot 4", partner="Bot 2", team=2)
         ]
         # Initialize tracking
         for bot in bots:
@@ -559,6 +652,10 @@ class MonteCarloSimulation():
         Runs a simulation to determine the call percentage for each seat position in order to tweak thresholds and strategy weights
         """
         import random
+        import time
+
+        # Initialize Table
+        Table.init_table()
 
         bots = self.initialize_bots()
 
@@ -571,8 +668,9 @@ class MonteCarloSimulation():
         # Track number of calls for each team
         team1_calls = 0
         team2_calls = 0
-        
-        for i in range(num_simulations):
+
+        start_time = time.time()
+        for game_num in range(num_simulations):
             # Make and shuffle deck
 
             # Track number of points for each team
@@ -647,6 +745,8 @@ class MonteCarloSimulation():
                           trump_suit = decision
                           trump_maker = bot
 
+                          #print(f"{trump_maker} calls {trump_suit}")
+
                           if trump_round == 1:
                               # Dealer gets up card and discards card
                               dealt_hands[dealer.name] = dealer.dealer_pickup(dealt_hands[dealer.name], up_card, decision)
@@ -657,16 +757,22 @@ class MonteCarloSimulation():
                       #print("Everyone passes")
 
               # Use this to get stats on how many times each call was successful or euchred
-              team1_p, team2_p = self.play_hand(dealt_hands, players, decision, trump_maker)
+              team1_p, team2_p = self.play_hand(game_num, team1_points, team2_points, dealt_hands, players, decision, trump_maker, up_card, dealer)
 
               team1_points += team1_p
               team2_points += team2_p
               self.track_results(trump_maker, team1_p, team2_p, trump_round, dealer)
-            # Show results of each game
-            #print(f"Game number {i + 1} Team 1 Score: {team1_points}, Team 2 Score: {team2_points}")
 
-        self.display_results(num_simulations)
-    
+            # Show results of each game
+            #print(f"Game number {game_num + 1} Team 1 Score: {team1_points}, Team 2 Score: {team2_points}")
+            if not game_num % 5:
+                print (f'Game number: {game_num}/{num_simulations}')
+                print(f'Time elapsed: {(time.time() - start_time)/60:.2f} min')
+
+        #self.display_results(num_simulations)
+        print (f'Games are complete')
+        print(f'Total Time elapsed: {(time.time() - start_time)/60:.2f} min')
+
     def track_call_data(self, bot, trump_round, dealer):
         if trump_round == 1:
             self.calls_round1[bot.name] += 1
@@ -682,7 +788,7 @@ class MonteCarloSimulation():
         calling_team_won = (team1_p > team2_p and trump_maker.team == 1) or (team2_p > team1_p and trump_maker.team == 2)
         points_earned = team1_p if trump_maker.team == 1 else team2_p
         self.total_points[trump_maker.name] += team1_p if trump_maker.team == 1 else team2_p
-        
+
         if trump_maker == dealer:
             self.dealer_points[trump_maker.name] += points_earned
 
@@ -701,15 +807,20 @@ class MonteCarloSimulation():
         print("\n--- Results ---")
         print(f"Total Simulations: {num_simulations}")
 
+        print("\nPlayer Card Win Probabilities:")
+        for card, stats in self.player_card_stats.items():
+            win_rate = stats['wins'] / stats['total'] if stats['total'] > 0 else 0
+            print(f"{card}: {win_rate:.2f} ({stats['wins']}/{stats['total']})")
+
         for bot in self.total_calls.keys():
             print(f"\n{bot}:")
-            #print(f"  Total Calls: {self.total_calls[bot]}")
-            #print(f"  Total Wins: {self.total_wins[bot]}")
-            #print(f"  Total Euchres: {self.total_euchres[bot]}")
-            #print(f"  First Round Calls: {self.calls_round1[bot]} - Wins: {self.wins_round1[bot]}")
-            #print(f"  Second Round Calls: {self.calls_round2[bot]} - Wins: {self.wins_round2[bot]}")
-            #print(f"  Dealer Count: {self.dealer_count[bot]}")
-            #print(f"  Called Trump as Dealer: {self.dealer_calls[bot]}")
+            print(f"  Total Calls: {self.total_calls[bot]}")
+            print(f"  Total Wins: {self.total_wins[bot]}")
+            print(f"  Total Euchres: {self.total_euchres[bot]}")
+            print(f"  First Round Calls: {self.calls_round1[bot]} - Wins: {self.wins_round1[bot]}")
+            print(f"  Second Round Calls: {self.calls_round2[bot]} - Wins: {self.wins_round2[bot]}")
+            print(f"  Dealer Count: {self.dealer_count[bot]}")
+            print(f"  Called Trump as Dealer: {self.dealer_calls[bot]}")
 
             # Calculate percentages
             win_rate = (self.total_wins[bot] / self.total_calls[bot]) * 100 if self.total_calls[bot] > 0 else 0
@@ -724,7 +835,7 @@ class MonteCarloSimulation():
             print(f"  First Round Win Rate: {first_round_rate:.2f}%")
             print(f"  Second Round Win Rate: {second_round_rate:.2f}%")
             print(f"  Euchre Rate: {euchre_rate:.2f}%")
-            print(f"  Avg Points Per Call: {avg_points_per_call:.2f}") 
+            print(f"  Avg Points Per Call: {avg_points_per_call:.2f}")
             print(f"  Call Trump as Dealer Rate: {call_trump_as_dealer:.2f}%")
             print(f"  Avg Points When Calling Trump as Dealer: {avg_dealer_points:.2f}")
 
@@ -734,60 +845,98 @@ class MonteCarloSimulation():
             print(f"  Total Wins: {self.team_wins[team]}")
             print(f"  Total Euchres: {self.team_euchres[team]}")
 
-    def play_hand(self, dealt_hands, players, trump_suit, trump_maker):
+    def play_hand(self, game_num, team1_points, team2_points, dealt_hands, players, trump_suit, trump_maker, up_card, dealer):
         """
         Plays a hand of Euchre
         """
 
         previous_cards = []
-        team1_tricks = 0
-        team2_tricks = 0
+        team_tricks = [0, 0]
 
         # Create copy of players list to keep track of player order
         play_order = players[:]
 
         for trick_number in range(1, 6):
+            # played cards for each trick
             played_cards = []
 
             # Each player plays a card
             for bot in play_order:
+                # Evaluate player situation just before player has to play.
                 card_to_play = bot.determine_best_card(dealt_hands[bot.name], trump_suit, played_cards, previous_cards, trump_maker)
+
+                if(bot.name == "Player"):
+
+                    # Perform montecarlo simulation for exploring each card in hard
+                    card_probs = self.monte_carlo_card_evaluator( original_state={ "dealt_hands": dealt_hands, 
+                                                                                  "previous_cards": previous_cards},
+                                                                  player_hand=dealt_hands["Player"], play_order=players,
+                                                                  trump_suit=trump_suit, trump_maker=trump_maker,
+                                                                  num_simulations=25)
+
+                    self.update_game_state(game_num, trick_number, team1_points, team2_points,
+                        team_tricks, dealer, play_order, players, trump_maker, trump_suit, dealt_hands, 
+                        card_to_play, up_card, previous_cards, card_probs)
+                    
+                    player_card_played = card_to_play.get_card()
+                    player_team = bot.team
 
                 dealt_hands[bot.name].remove(card_to_play)
 
                 played_cards.append(card_to_play)
 
             # Determine the winner of the trick
-            winner = self.evaluate_trick_winner(trump_suit, played_cards)
+            winner_name = self.evaluate_trick_winner(trump_suit, played_cards)
+            winner = next((bot for bot in play_order if bot.name == winner_name), None)
+
+            #print(f"{winner_name} won the round")
 
             # Add the played cards to the previous cards
             previous_cards.extend(played_cards)
 
             # Add 1 to the number of tricks the winner has in the original player list
-            if winner.team == 1:
-                team1_tricks += 1
-            elif winner.team == 2:
-                team2_tricks += 1
+            original_winner_index = players.index(winner)
+
+            winning_team = winner.team
+
+            # Team 1 points at index 0 and Team 2 points at index 1
+            team_tricks[winning_team - 1] += 1
+
+
+            #print(f"Team 1 tricks: {team_tricks[0]}, Team 2 tricks: {team_tricks[1]}")
 
             # Rotate the players list so that the winner leads the next trick
             winner_idx = play_order.index(winner)
             play_order = play_order[winner_idx:] + play_order[:winner_idx]
 
-        return self.evaluate_points(team1_tricks, team2_tricks, trump_maker)
+            team1_p, team2_p = self.evaluate_points(team_tricks[0], team_tricks[1], trump_maker)
+
+            team1_points = team1_p
+            team2_points = team2_p
+
+        # Track result for players card
+        if player_card_played:
+            if player_card_played not in self.player_card_stats:
+                self.player_card_stats[player_card_played] = {'wins': 0, 'total': 0}
+
+            self.player_card_stats[player_card_played]['total'] += 1
+
+            player_team_won = (team1_points > team2_points and player_team == 1) or (team2_points > team1_points and player_team == 2)
+            if player_team_won:
+                self.player_card_stats[player_card_played]['wins'] += 1
+
+        return team1_points, team2_points
 
     def evaluate_trick_winner(self, trump_suit, played_cards):
         """
         Evaluates the winner of the trick
         """
         # Get the lead suit
-        if played_cards[0].card.is_left_bower(trump_suit):
-            lead_suit = played_cards[0].card.next_suit()
-        else:
-            lead_suit = played_cards[0].card.suit
+        lead_suit = played_cards[0].card.suit
 
         winning_card = max(played_cards, key=lambda pc: Card.euchre_rank(pc.card, trump_suit, lead_suit))
 
-        return winning_card.player
+        return winning_card.player.name
 
     def evaluate_points(self, team1_tricks, team2_tricks, trump_maker):
         """
@@ -803,7 +952,7 @@ class MonteCarloSimulation():
 
         if trump_maker.team == 1:
             trump_calling_team = 1
-        elif trump_maker.team == 2:
+        else:
             trump_calling_team = 2
 
         if team1_tricks >= 3:
@@ -821,6 +970,8 @@ class MonteCarloSimulation():
                 # Team 2 euchred the other team
                 team2_points += 2
 
+        #print(f"Team 1: {team1_points}, Team 2: {team2_points}\n")
+
         return team1_points, team2_points
 
     def convert_to_played_cards(self, string_cards, player):
@@ -832,7 +983,144 @@ class MonteCarloSimulation():
             dummy_hand.append(played_card)
         return dummy_hand
 
+    def update_game_state(self, game_num, trick_number, team1_points, team2_points,
+                      team_tricks, dealer, play_order, players, trump_maker, trump_suit,
+                      dealt_hands, best_card, up_card, previous_cards, card_probs):
 
-if __name__ == "__main__":
-    simulation = MonteCarloSimulation()
-    simulation.run_simulation(1000)
+      index = 0
+      teammate_dealer = False
+      player_hand = []
+      player = None
+
+      for bot in play_order:
+          if bot.name == "Player":
+              player = bot
+              if dealer.team == bot.team:
+                  teammate_dealer = True
+              player_hand = dealt_hands[bot.name]
+              break
+          else:
+              index += 1
+
+      known_cards = [up_card.get_card()]
+      known_cards.extend([card.get_card() for card in previous_cards])
+
+      win_data = self.player_card_stats.get(best_card.get_card() , {"wins": 0, "total": 0})
+      win_prob = win_data["wins"] / win_data["total"] if win_data["total"] > 0 else 0
+
+      # Generate one row per card in the hand
+      for card in player_hand:
+          card_str = card.get_card()
+
+          game_state = {
+              "game_id": game_num,
+              "round_id": trick_number,
+              "team1_score": team1_points,
+              "team2_score": team2_points,
+              "team1_round_score": team_tricks[0],
+              "team2_round_score": team_tricks[1],
+              "seat_position": index,
+              "is_dealer": dealer.name == "Player",
+              "partner_is_dealer": teammate_dealer,
+              "trump_suit": trump_suit,
+              "hand": [c.get_card() for c in player_hand],
+              "known_cards": known_cards,
+              "card_to_evaluate": card_str,
+              "card_to_play": 1 if card.card == best_card.card else 0,
+              "win_probability": card_probs[card.get_card()]
+          }
+
+          Table.update_table(game_state)  # Update table with each card as a row
+
+      return  # You no longer return a single game_state, as you log multiple rows
+
+    def monte_carlo_card_evaluator(self, original_state, player_hand, play_order, trump_suit, trump_maker, num_simulations=50):
+        """
+        Simulates N games for each card in the player's hand to estimate win probability.
+        """
+        import copy
+        from collections import defaultdict
+
+        card_win_stats = defaultdict(lambda: {'wins': 0, 'total': 0})
+        player_team = [bot for bot in play_order if bot.name == "Player"][0].team
+
+        for card in player_hand:
+            card_str = card.get_card()
+
+            for _ in range(num_simulations):
+                # Deep copy the game state so each sim is fresh
+                sim_hands = copy.deepcopy(original_state["dealt_hands"])
+                sim_players = copy.deepcopy(play_order)
+                sim_previous_cards = copy.deepcopy(original_state["previous_cards"])
+
+                # Force player to play this card first
+                sim_hands["Player"] = [c for c in sim_hands["Player"] if c.get_card() != card.get_card()]
+                trick = [card]
+
+                # Let others play their card in this trick using minimal logic
+                for bot in sim_players:
+                    if bot.name == "Player":
+                        continue
+
+                    lead_suit = card.card.suit
+                    hand = sim_hands[bot.name]
+                    if not hand:
+                        continue  # Skip if no cards left
+
+                    card_to_play = bot.determine_best_card( sim_hands[bot.name],
+                        trump_suit, trick, sim_previous_cards,
+                        trump_maker)
+                    
+                    sim_hands[bot.name].remove(card_to_play)
+                    trick.append(card_to_play)
+
+                # Determine winner of trick 
+                winner_name = self.evaluate_trick_winner(trump_suit, trick)
+                winner = next(p for p in sim_players if p.name == winner_name)
+
+                # Randomly simulate remaining tricks (or use further logic)
+                team_tricks = [0, 0]
+                winning_team = winner.team
+                team_tricks[winning_team - 1] += 1
+
+                # Simulate 4 more tricks with simplified logic
+                for _ in range(4):
+                    trick = []
+                    for bot in sim_players:
+                        hand = sim_hands[bot.name]
+                        if hand:
+                            card_to_play = bot.determine_best_card( sim_hands[bot.name],
+                                trump_suit, trick, sim_previous_cards,
+                                trump_maker)
+                            
+                            sim_hands[bot.name].remove(card_to_play)
+                            trick.append(card_to_play)
+                    if trick:
+                        winner_name = self.evaluate_trick_winner(trump_suit, trick)
+                        winner = next(p for p in sim_players if p.name == winner_name)
+                        team_tricks[winner.team - 1] += 1
+
+                # Evaluate points
+                team1_points, team2_points = self.evaluate_points(team_tricks[0], team_tricks[1], trump_maker)
+
+                # Record result
+                player_won = (player_team == 1 and team1_points > team2_points) or \
+                            (player_team == 2 and team2_points > team1_points)
+
+                card_win_stats[card_str]["total"] += 1
+                if player_won:
+                    card_win_stats[card_str]["wins"] += 1
+
+        # Compute final probabilities
+        card_probabilities = {}
+        for card, stats in card_win_stats.items():
+            total = stats["total"]
+            wins = stats["wins"]
+            card_probabilities[card] = wins / total if total > 0 else 0
+
+        return card_probabilities
+
+# TEMPORARY DATA GENERATION 
+#if __name__ == "__main__":
+#    simulation = MonteCarloSimulation()
+#    simulation.run_simulation(100)
