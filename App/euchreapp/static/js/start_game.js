@@ -9,7 +9,9 @@ $(document).ready(function () {
     // Reset Current Trump and Game Score on Page Load
     $("#current-trump").text("None");
     $("#game-score").text("Player Team: 0 | Opponent Team: 0");
-
+    
+    // Initialize Semantic UI checkbox
+    $('.ui.toggle.checkbox').checkbox();
 
     // Map cards to their positions
     const positions = {
@@ -104,17 +106,19 @@ $(document).ready(function () {
         $("#reject-trump-button").show();
         $("#accept-trump-button").show();
         $(".suit-button").hide();
+        $("#going-alone-checkbox").show();
+        $("#going-alone-checkbox").prop("checked", false);
         $("#modal-trump .modal-content").html(`
-            <p><strong>Trump Card:</strong> ${card}</p>
-            <p><strong>${player}</strong>, do you want to make this the trump card?</p>
+            <img src="${getCardImage(card)}" class="playing-card" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%);" alt="Up Card">
         `);
 
         $("#reject-trump-button").prop("disabled", false);
     
         // Ensure buttons are properly assigned new handlers
         $("#accept-trump-button").off("click").on("click", function () {
+            const goingAlone = $("#going-alone-checkbox").is(":checked");
             $("#modal-trump").fadeOut(); // Hide the modal before proceeding
-            acceptTrump(player, card, 1);
+            acceptTrump(player, card, 1, goingAlone);
         });
     
         $("#reject-trump-button").off("click").on("click", function () {
@@ -134,8 +138,9 @@ $(document).ready(function () {
         $("#reject-trump-button").show();
         $("#accept-trump-button").hide();
         $(".suit-button").show();
+        $("#going-alone-checkbox").show();
+        $("#going-alone-checkbox").prop("checked", false);
         $("#modal-trump .modal-content").html(`
-            <p><strong>${player}</strong>, select a trump suit or pass:</p>
         `);
 
         // Enable all suit buttons
@@ -146,14 +151,15 @@ $(document).ready(function () {
         $(`.suit-button[data-suit="${upCardSuit}"]`).prop("disabled", true);
 
         // Disable the pass button if player is the dealer
-        if (player === dealer) {
+        if (player === gameResponse.dealer) {
             $("#reject-trump-button").prop("disabled", true);
         }
 
         $(".suit-button").off("click").on("click", function () {
             const selectedSuit = $(this).data("suit");
+            const goingAlone = $("#going-alone-checkbox").is(":checked");
             $("#modal-trump").fadeOut(); // Hide the modal before proceeding
-            acceptTrump(player, selectedSuit, 2);
+            acceptTrump(player, selectedSuit, 2, goingAlone);
         });
 
         $("#reject-trump-button").off("click").on("click", function () {
@@ -164,8 +170,8 @@ $(document).ready(function () {
         $("#modal-trump").fadeIn(); // Ensure modal appears properly
     }    
 
-    function acceptTrump(player, card, trumpRound) {
-        const data = { trump_round: trumpRound };
+    function acceptTrump(player, card, trumpRound, goingAlone) {
+        const data = { trump_round: trumpRound};
 
         if (trumpRound === 1) {
             if (gameResponse.remaining_cards.includes(card)) {
@@ -198,17 +204,22 @@ $(document).ready(function () {
                 updateKittyDisplay();
 
                 // Update the Player's hand display if they are the dealer (they picked up the up card)
-                if (updated_hand && dealer === "Player") {
-                    updateDealerHand(dealer, updated_hand);
+                if (updated_hand) {
+                    updatePlayerHand("Player", updated_hand);
                 }
 
                 // Update UI with the new trump suit
-                updateTrumpDisplay(response.trump_suit);
+                updateTrumpDisplay(currentSuit);
+
+                // Add indicator to the player who called trump
+                updatePlayerNames(player, currentSuit);
     
                 // Hide trump modal and show round start confirmation
                 $("#modal-trump").fadeOut();
-                message = `${player} accepted trump! The trump suit is now ${currentSuit}.`
-                showRoundStart(message, player);
+                message = goingAlone 
+                    ? `${player} is <b>going alone</b> in ${currentSuit}.`
+                    : `${player} called trump! The trump suit is now ${currentSuit}.`
+                showRoundStart(message, player, goingAlone);
             },
             error: function (xhr) {
                 alert("Error accepting trump: " + xhr.responseText);
@@ -216,7 +227,41 @@ $(document).ready(function () {
         });
     }
 
-    function updateDealerHand(player, cards) {
+    function updatePlayerNames(trumpCaller = null, trumpSuit = null) {
+        $(".rectangle").removeClass("loner-partner");
+        
+        $(".center-top-text").text("Team Mate");
+        $(".center-left-text").text("Opponent 1");
+        $(".center-bottom-text").text("Player");
+        $(".center-right-text").text("Opponent 2");
+
+        // Add indicator to the player who called trump
+        if (trumpCaller) {
+            const nameMap = {
+                "Player": ".center-bottom-text",
+                "Opponent1": ".center-left-text",
+                "Team Mate": ".center-top-text",
+                "Opponent2": ".center-right-text"
+            }
+
+            const suitImageMap = {
+                "spades": "/static/images/spade.png",
+                "hearts": "/static/images/heart.png",
+                "diamonds": "/static/images/diamond.png",
+                "clubs": "/static/images/club.png"
+            }
+            
+            const selector = nameMap[trumpCaller];
+            const baseText = $(selector).text();
+            if (selector.includes("center-left-text") || selector.includes("center-right-text")) {
+                $(selector).html(`${baseText} <img src="${suitImageMap[trumpSuit]}" alt="${trumpSuit}" class="trump-caller-indicator ${selector === ".center-right-text" ? "right-indicator" : "left-indicator"}">`);
+            } else {
+                $(selector).html(`${baseText} <img src="${suitImageMap[trumpSuit]}" alt="${trumpSuit}" class="trump-caller-indicator">`);
+            }
+        }
+    }
+
+    function updatePlayerHand(player, cards) {
         const cardContainer = $(positions["Player"]);
         cardContainer.empty(); // Clear previous cards
 
@@ -232,12 +277,12 @@ $(document).ready(function () {
         if (currentPlayerIndex < playerOrder.length) {
             if (trumpRound === 1) {
                 setTimeout(() => {
-                if (playerOrder[currentPlayerIndex].is_human == true) {
-                    showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex].name);
-                } else {
-                    determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], trumpRound, playerOrder);
-                }
-            }, 400); // Delay prevents modal flickering
+                    if (playerOrder[currentPlayerIndex].is_human == true) {
+                        showTrumpCardDialog(gameResponse.remaining_cards[0], playerOrder[currentPlayerIndex].name);
+                    } else {
+                        determineBotTrumpDecision(playerOrder[currentPlayerIndex].name, gameResponse.remaining_cards[0], trumpRound, playerOrder);
+                    }
+                }, 400); // Delay prevents modal flickering
             } else if (trumpRound === 2) {
                 setTimeout(() => {
                     if (playerOrder[currentPlayerIndex].is_human == true) {
@@ -282,19 +327,26 @@ $(document).ready(function () {
             async: false,
             success: function (response) {
                 const botDecision = response.decision;
+                const goingAlone = response.going_alone;
                 console.log("Bot decision:", botDecision);
 
                 if (trumpRound === 1) {
                     if (botDecision === 'pass') {
-                        rejectTrump(player, trumpRound);
+                        $("#bot-messages").text(`${player} passes`).fadeIn().delay(400).fadeOut();
+                        setTimeout(() => {
+                            rejectTrump(player, trumpRound);
+                        }, 800);
                     } else {
-                        acceptTrump(player, upCard, trumpRound);
+                        acceptTrump(player, upCard, trumpRound, goingAlone);
                     }
                 } else if (trumpRound === 2) {
                     if (botDecision === 'pass') {
-                        rejectTrump(player, trumpRound);
+                        $("#bot-messages").text(`${player} passes`).fadeIn().delay(400).fadeOut();
+                        setTimeout(() => {
+                            rejectTrump(player, trumpRound);
+                        }, 800);
                     } else {
-                        acceptTrump(player, botDecision, trumpRound);
+                        acceptTrump(player, botDecision, trumpRound, goingAlone);
                     }
                 }
             },
@@ -321,13 +373,12 @@ $(document).ready(function () {
     }
 
     // Function to display the round status
-    function showRoundStart(message, trumpCaller) {
+    function showRoundStart(message, trumpCaller, goingAlone) {
         if (!trumpSelected) return;  // Prevents round modal from appearing too early
 
         $("#modal-trump").fadeOut(); // Hide trump modal if still visible
         $("#modal-round .modal-content").html(`
             <p>${message}</p>
-            <p><strong>Order of Play:</strong> ${playerOrder.map(player => player.name).join(", ")}</p>
         `);
     
         $("#modal-round-button").show();
@@ -337,20 +388,42 @@ $(document).ready(function () {
         $("#accept-trump-button").hide();
         $("#reject-trump-button").hide();
         $("#ok-modal-button").hide();
-        $("#modal-round-button").show();
+        $("#ok-round-button").hide();
         $("#ok-trump-button").hide();
+        $("#modal-round-button").show();
+
+        if (goingAlone) {
+            updateHandForLoner(trumpCaller, goingAlone);
+        }
 
         $("#modal-round-button").off("click").on("click", function () {
             $("#modal-round").fadeOut();
-            startRound(trumpCaller);
+            startRound(trumpCaller, goingAlone);
         });
 
         $("#modal-round").fadeIn(); // Ensure round modal is displayed
+    }
+
+    function updateHandForLoner(trumpCaller, goingAlone) {
+        const partnerMap = {
+            "Player": "Team Mate",
+            "Opponent1": "Opponent2",
+            "Opponent2": "Opponent1",
+            "Team Mate": "Player"
+        };
+
+        const partner = partnerMap[trumpCaller];
+        $(positions[partner]).addClass("loner-partner");
     }
     
 
     // Start the game
     $("#start-game-button").click(function () {
+
+        // Hide the start game button
+        $("#start-game-button").hide();
+        $("#start-game-form").hide();
+
         $.ajax({
             url: "/start-game/", // Matches the URL in urls.py
             type: "POST",
@@ -370,7 +443,7 @@ $(document).ready(function () {
                     // ✅ Only add the dealer icon if it's missing
                     if ($(dealerPosition).find(".dealer-icon").length === 0) {
                         $(dealerPosition).prepend(`
-                            <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
+                            <img src="/static/images/dealer-icon.png" alt="Dealer Icon" class="dealer-icon">
                         `);
                     }
                 }
@@ -401,6 +474,8 @@ $(document).ready(function () {
                 gameResponse = response;
                 playerOrder = response.player_order;
                 currentPlayerIndex = 0;
+
+                updateTrumpDisplay(null);
     
                 initializeKitty(response.remaining_cards);
                 displayDealtCards(response);
@@ -413,7 +488,7 @@ $(document).ready(function () {
                     $(dealerPosition).addClass("dealer-highlight");
                     if ($(dealerPosition).find(".dealer-icon").length === 0) {
                         $(dealerPosition).prepend(`
-                            <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
+                            <img src="/static/images/dealer-icon.png" alt="Dealer Icon" class="dealer-icon">
                         `);
                     }
                 }
@@ -500,20 +575,29 @@ $(document).ready(function () {
     }
 
     function updateTrumpDisplay(suit) {
-        const suitImageMap = {
-            "spades": "/static/images/spade.png",
-            "hearts": "/static/images/heart.png",
-            "diamonds": "/static/images/diamond.png",
-            "clubs": "/static/images/club.png"
-        };
+        if (!suit) {
+            $(".bottom-left-column-1").html(`
+                <span>Current Trump</span>
+                <div class="icon-wrapper">
+                    <img src="/static/images/card_suits.png" alt="Select Trump" class="trump-suit-icon">
+                </div>
+            `);
+        } else {
+            const suitImageMap = {
+                "spades": "/static/images/spade.png",
+                "hearts": "/static/images/heart.png",
+                "diamonds": "/static/images/diamond.png",
+                "clubs": "/static/images/club.png"
+            };
 
-        const suitImagePath = suitImageMap[suit];
-        $(".bottom-left-column-1").html(`
-            <span>Current Trump</span>
-            <div class="icon-wrapper">
-                <img src="${suitImagePath}" alt="${suit}" class="trump-suit-icon">
-            </div>
-        `);
+            const suitImagePath = suitImageMap[suit];
+            $(".bottom-left-column-1").html(`
+                <span>Current Trump</span>
+                <div class="icon-wrapper">
+                    <img src="${suitImagePath}" alt="${suit}" class="trump-suit-icon">
+                </div>
+            `);
+        }
     }
 
 
@@ -560,7 +644,7 @@ $(document).ready(function () {
     function showRoundResults(results) {
         let winningMessage = results.winning_team
             ? `<p><strong>${results.winning_team} won the game!</strong></p>`
-            : `<p>Current Score - Player Team: ${results.team1_points} | Opponent Team: ${results.team2_points}</p>`;
+            : ``;
 
         // Update game score display
         updateGameScore(results.team1_points, results.team2_points);
@@ -588,13 +672,13 @@ $(document).ready(function () {
     
 
     // Handle starting the round
-    function startRound(trumpCaller) {
+    function startRound(trumpCaller, goingAlone) {
         console.log(`🔄 Starting round. Trump caller: ${trumpCaller}`);
 
         $.ajax({
             url: "/start-round/",
             type: "POST",
-            data: { trump_caller: trumpCaller },
+            data: { trump_caller: trumpCaller, going_alone: goingAlone },
             success: function (response) {
                 console.log("✅ Round Results Received:", response);
 
@@ -630,6 +714,8 @@ $(document).ready(function () {
     $("#ok-round-button").click(function () {
         $("#modal-round").fadeOut();  // Hide the round results modal
         // dealNextHand(); // ✅ Fix: Ensure trump selection happens first
+        // Reset player names to remove trump indicator
+        updatePlayerNames();
     
         $.ajax({
             url: "/deal-next-hand/",  // Redeal hands and rotate dealer
@@ -639,6 +725,8 @@ $(document).ready(function () {
                 gameResponse = response;
                 playerOrder = response.player_order;
                 currentPlayerIndex = 0;
+
+                updateTrumpDisplay(null);
                 
                 initializeKitty(response.remaining_cards);
                 displayDealtCards(response);
@@ -705,7 +793,7 @@ $(document).ready(function () {
             $(dealerPosition).addClass("dealer-highlight");
             if ($(dealerPosition).find(".dealer-icon").length === 0) {
                 $(dealerPosition).prepend(`
-                    <img src="/static/images/dealer-icon.jpg" alt="Dealer Icon" class="dealer-icon">
+                    <img src="/static/images/dealer-icon.png" alt="Dealer Icon" class="dealer-icon">
                 `);
             }
         } else {
@@ -730,6 +818,8 @@ $(document).ready(function () {
                 $(".custom-modal").fadeOut();
                 $("#remaining-cards-list").html("<p></p>");
                 
+                updatePlayerNames();
+
                 // Show the Start Game button again
                 $("#end-game-button").hide();
                 $("#start-game-button").show();
@@ -849,10 +939,10 @@ $(document).ready(function () {
             const opponent2Index = trick.players.indexOf(opponent2); // Opponent 2
 
             // Extract cards based on the player index
-            const playerCard = trick.cards[playerIndex];
-            const opponent1Card = trick.cards[opponent1Index];
-            const teammateCard = trick.cards[teammateIndex];
-            const opponent2Card = trick.cards[opponent2Index];
+            const playerCard = playerIndex !== -1 ? trick.cards[playerIndex] : "";
+            const opponent1Card = opponent1Index !== -1 ? trick.cards[opponent1Index] : "";
+            const teammateCard = teammateIndex !== -1 ? trick.cards[teammateIndex] : "";
+            const opponent2Card = opponent2Index !== -1 ? trick.cards[opponent2Index] : "";
 
             // Extract players and cards
             // let player = trick.players[0]; // Player

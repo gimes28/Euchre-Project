@@ -160,6 +160,12 @@ def deal_next_hand(request):
             # Deal new hands
             hands, remaining_cards = model_deal_hand(deck, players, game)
 
+             # Sort the hands
+            for player, cards in hands.items():
+                if player.is_human:
+                    sorted_cards = sort_hand(cards)
+                    hands[player] = sorted_cards
+
             # Prepare the response with the updated state
             response = {
                 "hands": {
@@ -219,6 +225,12 @@ def deal_hand(request):
                 return JsonResponse({"error": "Unexpected return value from deal_hand(). Check function implementation."}, status=500)
 
             hands, remaining_cards = result  # This line previously failed
+
+            # Sort the hands
+            for player, cards in hands.items():
+                if player.is_human:
+                    sorted_cards = sort_hand(cards)
+                    hands[player] = sorted_cards
 
             # Prepare the response
             response = {
@@ -314,7 +326,7 @@ def accept_trump(request):
                     rank, suit = card_info.split(" of ")
                 except ValueError:
                     return JsonResponse({"error": f"Card parsing error: '{card_info}'"}, status=400)
-
+                
                 # Fetch card
                 try:
                     card = Card.objects.get(rank=rank, suit=suit)
@@ -330,10 +342,13 @@ def accept_trump(request):
                 dealer_hand.append(card)
                 
                 # updated_dealer_hand = game.dealer.dealer_pickup(dealer_hand, card)
-                discarded_card = game.dealer.dealer_discard(dealer_hand, card.suit)
+                discarded_card = game.dealer.get_worst_card(dealer_hand, card.suit)
                 dealer_hand.remove(discarded_card)
 
                 dealer_played_cards.delete()
+
+                if game.dealer.is_human:
+                    dealer_hand = sort_hand(dealer_hand, suit)
 
                 for i, card in enumerate(dealer_hand):
                     PlayedCard.objects.create(
@@ -343,11 +358,34 @@ def accept_trump(request):
                         order=i + 1  # Ensure correct order
                     )
 
+                if not game.dealer.is_human:
+                    player = Player.objects.get(is_human=True)
+                    player_cards = PlayedCard.objects.filter(player=player, hand=latest_hand)
+                    player_hand = [played_card.card for played_card in player_cards]
+                    sorted_player_hand = sort_hand(player_hand, suit)
+
+                    player_cards.delete()
+
+                    for i, card in enumerate(sorted_player_hand):
+                        PlayedCard.objects.create(
+                            player=player,
+                            card=card,
+                            hand=latest_hand,
+                            order=i + 1
+                        )
+
                 # Retrieve updated hand
-                updated_hand = [
-                    f"{pc.card.rank} of {pc.card.suit}"
-                    for pc in PlayedCard.objects.filter(player=game.dealer, hand=latest_hand)
-                ]
+                if game.dealer.is_human:
+                    updated_hand = [
+                        f"{pc.card.rank} of {pc.card.suit}"
+                        for pc in PlayedCard.objects.filter(player=game.dealer, hand=latest_hand)
+                    ]
+                else:
+                    updated_hand = [
+                        f"{pc.card.rank} of {pc.card.suit}"
+                        for pc in PlayedCard.objects.filter(player=player, hand=latest_hand)
+                    ]
+                print(f"Updated hand: {updated_hand}")
 
                 # Update the game's trump suit
                 game.trump_suit = suit
@@ -363,16 +401,38 @@ def accept_trump(request):
             # Handle round 2 of trump selection
             elif trump_round == "2":
                 suit = request.POST.get("suit")
-
                 if not suit:
                     return JsonResponse({"error": "Missing suit data."}, status=400)
+                
+                player = Player.objects.get(is_human=True)
+                player_cards = PlayedCard.objects.filter(player=player, hand=latest_hand)
+                player_hand = [played_card.card for played_card in player_cards]
+                sorted_player_hand = sort_hand(player_hand, suit)
+
+                player_cards.delete()
+
+                for i, card in enumerate(sorted_player_hand):
+                    PlayedCard.objects.create(
+                        player=player,
+                        card=card,
+                        hand=latest_hand,
+                        order=i + 1
+                    )
+
+                # Retrieve updated hand
+                updated_hand = [
+                    f"{pc.card.rank} of {pc.card.suit}"
+                    for pc in PlayedCard.objects.filter(player=player, hand=latest_hand)
+                ]
+                print(f"Updated hand: {updated_hand}")
 
                 # Update the game's trump suit
                 game.trump_suit = suit
                 game.save()
                 
                 return JsonResponse({
-                    "trump_suit": suit
+                    "trump_suit": suit,
+                    "updated_hand": updated_hand
                 })
             
             return JsonResponse({"error": "Invalid trump round."}, status=400)
@@ -432,6 +492,7 @@ def start_round(request):
         try:
             game = Game.objects.latest('id')
             trump_caller_name = request.POST.get("trump_caller")
+            going_alone = request.POST.get("going_alone") == "true"
 
             try:
                 trump_caller = Player.objects.get(name=trump_caller_name)
@@ -472,7 +533,7 @@ def start_round(request):
                     return JsonResponse({"error": f"{player.name} has {len(player_cards)} cards instead of 5!"}, status=500)
 
             # Step 5: Play the entire round (all 5 tricks)
-            round_result = start_euchre_round(game, trump_caller)  # Plays **all 5 tricks**
+            round_result = start_euchre_round(game, trump_caller, going_alone)  # Plays **all 5 tricks**
             
             return round_result  # Returns JSON with full round data
 
@@ -580,9 +641,44 @@ def determine_bot_trump_decision(request):
             player_order = [Player.objects.get(name=player['name']) for player in player_order_data]
 
             # Determine the trump decision
-            trump_decision = bot.determine_trump(bot_hand, game.dealer, up_card, player_order, trump_round)
+            trump_decision, going_alone = bot.determine_trump(bot_hand, game.dealer, up_card, player_order, trump_round)
 
-            return JsonResponse({"decision": trump_decision})
+            return JsonResponse({"decision": trump_decision, "going_alone": going_alone})
 
         except Exception as e:
             return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)
+        
+def sort_hand(hand, trump_suit=None):
+    """
+    Sorts a list of Cards based on their suits and ranks
+    """
+    def euchre_sort_key(card):
+        suit_order = {'hearts': 0, 'diamonds': 1, 'clubs': 2, 'spades': 3}
+
+        if trump_suit:
+            if card.is_right_bower(trump_suit):
+                suit_group = 0
+            elif card.is_left_bower(trump_suit):
+                suit_group = 1
+            elif card.suit == trump_suit:
+                suit_group = 2
+            else:
+                suit_group = suit_order.get(card.suit, 4) + 3
+        else:
+            suit_group = suit_order.get(card.suit, 4)
+        
+        rank_values = {
+            'A': 6,
+            'K': 5,
+            'Q': 4,
+            'J': 3,
+            '10': 2,
+            '9': 1
+        }
+
+        return (suit_group, -rank_values.get(card.rank, 0))
+            
+    print(f"Sorting hand")
+    return sorted(hand, key=euchre_sort_key)
+    
+    
