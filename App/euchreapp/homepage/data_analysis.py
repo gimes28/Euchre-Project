@@ -36,7 +36,24 @@ class Data_Encoding():
     def is_trump(self, card_encoder, label_encoders, card_code, trump_code):
         card_str = card_encoder.inverse_transform([card_code])[0]
         trump_str = label_encoders["trump_suit"].inverse_transform([trump_code])[0]
-        return int(card_str.endswith(trump_str))
+        rank, _, suit = card_str.partition(" of ")
+
+        # Map suit pairs (used to identify left bower)
+        SUIT_PAIRS = {
+            'hearts': 'diamonds',
+            'diamonds': 'hearts',
+            'clubs': 'spades',
+            'spades': 'clubs'
+        }
+
+        # Check for right bower (Jack of trump suit)
+        if rank == 'J' and suit == trump_str:
+            return 1
+        # Check for left bower (Jack of the same-color suit)
+        if rank == 'J' and suit == SUIT_PAIRS.get(trump_str, ''):
+            return 1
+        # Otherwise, standard trump check
+        return int(suit == trump_str)
 
     def decode_data(self):
         print("Decoding Data")
@@ -50,7 +67,7 @@ class Data_Encoding():
 
         # Encode categorical features using Label Encoding
         label_encoders = {}
-        categorical_features = ["trump_suit"]
+        categorical_features = ["trump_maker", "trump_suit", "suit_lead"]
 
         for col in categorical_features:
             le = LabelEncoder()
@@ -60,12 +77,15 @@ class Data_Encoding():
         # Convert string representations of lists into actual lists
         df['hand'] = df['hand'].apply(literal_eval)
         df['known_cards'] = df['known_cards'].apply(literal_eval)
+        df['current_trick'] = df['current_trick'].apply(literal_eval)
 
         # Combine all unique cards from 'hand', 'known_cards', 'card_to_play', and 'card_to_evaluate'
         all_cards = set(card for card_list in df['hand'] for card in card_list).union(
+            set(card for card_list in df['current_trick'] for card in card_list),
             set(card for card_list in df['known_cards'] for card in card_list),
+            set(df['up_card'].dropna()),
             set(df['card_to_play'].dropna()),
-            set(df['card_to_evaluate'].dropna())
+            set(df['card_to_evaluate'].dropna()), 
         )
 
         # Initialize LabelEncoder for cards
@@ -75,14 +95,17 @@ class Data_Encoding():
         # Define maximum lengths
         max_hand_length = 5
         max_known_cards_length = 18
+        max_current_trick = 3
 
-        # Encode hand and known cards
+        # Encode hand, known cards, current trick cards
         df['hand_encoded'] = df['hand'].apply(lambda x: self.encode_cards(x, card_encoder, max_hand_length))
         df['known_cards_encoded'] = df['known_cards'].apply(lambda x: self.encode_cards(x, card_encoder, max_known_cards_length))
+        df['current_trick_encoded'] = df['current_trick'].apply(lambda x: self.encode_cards(x, card_encoder, max_current_trick))
 
-        # Encode card_to_play and card_to_evaluate
+        # Encode card_to_play, card_to_evaluate, and up_card
         df['card_to_play_encoded'] = df['card_to_play'].apply(lambda x: self.encode_cards(x, card_encoder, 1)[0])
         df['card_to_evaluate'] = df['card_to_evaluate'].apply(lambda x: self.encode_cards(x, card_encoder, 1)[0])
+        df['up_card'] = df['up_card'].apply(lambda x: self.encode_cards(x, card_encoder, 1)[0])
 
         df["is_trump_card"] = df.apply(lambda row: self.is_trump(card_encoder, label_encoders, row["card_to_evaluate"], row["trump_suit"]), axis=1)
 
@@ -98,7 +121,7 @@ class Data_Encoding():
         df = pd.concat([df, hand_encoded_df, known_cards_encoded_df], axis=1)
 
         # Drop original string/list-based columns
-        df.drop(columns=['hand', 'known_cards', 'hand_encoded', 'known_cards_encoded', 'card_to_play'], inplace=True)
+        df.drop(columns=['hand', 'current_trick', 'known_cards', 'up_card', 'hand_encoded', 'current_trick_encoded', 'known_cards_encoded', 'card_to_play'], inplace=True)
 
         # Final features and target
         X = df.drop(columns=['card_to_play_encoded', 'win_probability'])
@@ -111,7 +134,7 @@ class Data_Encoding():
 
         return X, y_card, y_prob, card_encoder, label_encoders
     
-    def Encode_Game_State(self, game_state, card_enconder, label_encoders):
+    def Encode_Game_State(self, game_state, card_encoder, label_encoders):
         # Convert game_state dict to DataFrame
         df = pd.DataFrame([game_state])
 
@@ -120,7 +143,8 @@ class Data_Encoding():
         df["partner_is_dealer"] = df["partner_is_dealer"].astype(int)
 
         # Encode categorical feature(s)
-        for col in ["trump_suit"]:
+        categorical_features = ["trump_maker", "trump_suit", "suit_lead"]
+        for col in categorical_features:
             df[col] = label_encoders[col].transform(df[col])
 
         # Convert string lists to actual lists        
@@ -132,26 +156,31 @@ class Data_Encoding():
 
         df['hand'] = df['hand'].apply(safe_eval)
         df['known_cards'] = df['known_cards'].apply(safe_eval)
+        df['current_trick'] = df['current_trick'].apply(safe_eval)
 
         max_hand_length = 5
         max_known_cards_length = 18
+        max_current_trick = 3
 
         # Encode cards
         df['hand_encoded'] = df['hand'].apply(lambda x: self.encode_cards(x, card_encoder, max_hand_length))
         df['known_cards_encoded'] = df['known_cards'].apply(lambda x: self.encode_cards(x, card_encoder, max_known_cards_length))
+        df['current_trick_encoded'] = df['current_trick'].apply(lambda x: self.encode_cards(x, card_encoder, max_current_trick))
         df['card_to_play_encoded'] = df['card_to_play'].apply(lambda x: self.encode_cards(x, card_encoder, 1)[0])
         df['card_to_evaluate'] = df['card_to_evaluate'].apply(lambda x: self.encode_cards(x, card_encoder, 1)[0])
+        df['up_card'] = df['up_card'].apply(lambda x: self.encode_cards(x, card_encoder, 1)[0])
 
         df["is_trump_card"] = df.apply(lambda row: self.is_trump(card_encoder, label_encoders, row["card_to_evaluate"], row["trump_suit"]), axis=1)
 
         # Create expanded columns
         hand_df = pd.DataFrame(df['hand_encoded'].tolist(), columns=[f'hand_card_{i}' for i in range(max_hand_length)])
         known_df = pd.DataFrame(df['known_cards_encoded'].tolist(), columns=[f'known_card_{i}' for i in range(max_known_cards_length)])
+        trick_df = pd.DataFrame(df['current_trick_encoded'].tolist(), columns=[f'current_trick{i}' for i in range(max_known_cards_length)])
 
-        df = pd.concat([df, hand_df, known_df], axis=1)
+        df = pd.concat([df, hand_df, known_df, trick_df], axis=1)
 
         # Drop unnecessary columns
-        df.drop(columns=['hand', 'known_cards', 'hand_encoded', 'known_cards_encoded', 'card_to_play'], inplace=True)
+        df.drop(columns=['hand', 'current_trick', 'known_cards', 'up_card', 'hand_encoded', 'current_trick_encoded', 'known_cards_encoded', 'card_to_play'], inplace=True)
 
         # Return only feature columns
         X = df.drop(columns=['card_to_play_encoded', 'win_probability'], errors='ignore')
@@ -244,10 +273,10 @@ class Random_Forest_Model():
         print(f"Win Probability R² Score: {prob_r2:.4f}")
             
         # Save the trained models
-        joblib.dump(rf_card, os.path.join(DATA_DIR, "rf_card_model.pkl"))
-        joblib.dump(rf_prob, os.path.join(DATA_DIR, "rf_prob_model.pkl"))
-        joblib.dump(card_encoder, os.path.join(DATA_DIR, "card_encoder.pkl"))
-        joblib.dump(label_encoders, os.path.join(DATA_DIR, "label_encoders.pkl"))
+        #joblib.dump(rf_card, os.path.join(DATA_DIR, "rf_card_model.pkl"))
+        #joblib.dump(rf_prob, os.path.join(DATA_DIR, "rf_prob_model.pkl"))
+        #joblib.dump(card_encoder, os.path.join(DATA_DIR, "card_encoder.pkl"))
+        #joblib.dump(label_encoders, os.path.join(DATA_DIR, "label_encoders.pkl"))
 
 if __name__ == "__main__":
     # Initialize Data_Encoding and Random_Forest_Model instances
@@ -255,7 +284,7 @@ if __name__ == "__main__":
     model = Random_Forest_Model()
 
     ### CHECK IF MODEL NEEDS TRAINED ###
-    model_is_trained = True
+    model_is_trained = False
     if(model_is_trained == False):
         # Decode data and train models
         X, y_card, y_prob, card_encoder, label_encoders = data_encoder.decode_data()
@@ -270,17 +299,17 @@ if __name__ == "__main__":
         game_state = {
             "game_id": 0,
             "round_id": 1,
-            "team1_score": 2,
-            "team2_score": 3,
+            "team1_score": 0,
+            "team2_score": 0,
             "team1_round_score": 0,
             "team2_round_score": 0,
-            "seat_position": 2,
+            "seat_position": 0,
             "is_dealer": False,
-            "partner_is_dealer": True,
-            "trump_suit": "diamonds",
+            "partner_is_dealer": False,
+            "trump_suit": "clubs",
             "is_loner": False,
-            "hand": ['A of spades', 'J of clubs', '9 of diamonds', '10 of hearts'],
-            "known_cards": ['10 of diamonds'],
+            "hand": ['A of clubs', 'K of hearts', 'K of diamonds', '9 of spades', 'Q of diamonds'],
+            "known_cards": ['J of clubs'],
             # 'card_to_evaluate' and 'card_to_play' will be set in the function
             "win_probability": -1
         }

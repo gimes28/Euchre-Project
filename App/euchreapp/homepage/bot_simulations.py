@@ -10,11 +10,12 @@ DATA_DIR = os.path.join(BASE_DIR, "data_storage")
 FILENAME = os.path.join(DATA_DIR, "game_data.csv")
 
 COLUMNS = [ "game_id", "round_id", "team1_score", "team2_score",
-          "team1_round_score", "team2_round_score",
+            "team1_round_score", "team2_round_score",
             "seat_position", "is_dealer", "partner_is_dealer",
-            "trump_suit", "hand", "known_cards", "card_to_evaluate", 
+            "trump_suit", "trump_maker", "hand", "current_trick", 
+            "suit_lead", "up_card", "known_cards", "card_to_evaluate", 
             "card_to_play", "win_probability"
-]
+        ]
 class Table():
   def init_table():
     # Create DataFrame
@@ -75,6 +76,9 @@ class PlayedCard():
 
     def __str__(self):
         return f"{self.player.name} played {self.card.rank} of {self.card.suit}"
+    
+    def get_card(self):
+        return f"{self.card.rank} of {self.card.suit}"
     
 class MonteCarloSimulation():
     def __init__(self):
@@ -361,7 +365,7 @@ class MonteCarloSimulation():
         for trick_number in range(1, 6):
             # played cards for each trick
             played_cards = []
-
+            suit_lead = ""
             # Each player plays a card
             for bot in play_order:
                 card_to_play = bot.determine_best_card(
@@ -374,8 +378,11 @@ class MonteCarloSimulation():
                     tricks_won=team_tricks[bot.team - 1]
                 )
                 
+                # Find suit lead at beginning of trick
+                if bot.name == play_order[0].name:
+                    suit_lead = card_to_play.suit
+                
                 if(bot.name == "Player"):
-
                     # Perform montecarlo simulation for exploring each card in hard
                     card_probs = self.monte_carlo_card_evaluator( original_state={ "dealt_hands": dealt_hands, 
                                                                                   "previous_tricks": previous_tricks},
@@ -383,10 +390,13 @@ class MonteCarloSimulation():
                                                                   trump_suit=trump_suit, trump_maker=trump_maker,
                                                                   going_alone=going_alone, team_tricks=team_tricks,
                                                                   num_simulations=25)
+                    # Find suit lead at beginning of trick if player is first
+                    if "Player" == play_order[0].name:
+                        suit_lead = card_to_play.suit
 
                     self.update_game_state(game_num, trick_number, team1_points, team2_points,
                         team_tricks, dealer, play_order, players, trump_maker, trump_suit, dealt_hands, 
-                        card_to_play, up_card, previous_tricks, card_probs)
+                        card_to_play, up_card, played_cards, previous_tricks, suit_lead, card_probs)
                     
                     player_card_played = card_to_play
                     player_team = bot.team
@@ -497,54 +507,57 @@ class MonteCarloSimulation():
 
     def update_game_state(self, game_num, trick_number, team1_points, team2_points,
                       team_tricks, dealer, play_order, players, trump_maker, trump_suit,
-                      dealt_hands, best_card, up_card, previous_cards, card_probs):
+                      dealt_hands, best_card, up_card, played_cards, previous_tricks, suit_lead, card_probs):
 
-      index = 0
-      teammate_dealer = False
-      player_hand = []
-      player = None
+        index = 0
+        teammate_dealer = False
+        player_hand = []
+        player = None
 
-      for bot in play_order:
-          if bot.name == "Player":
-              player = bot
-              if dealer.team == bot.team:
-                  teammate_dealer = True
-              player_hand = dealt_hands[bot.name]
-              break
-          else:
-              index += 1
+        for bot in play_order:
+            if bot.name == "Player":
+                player = bot
+                if dealer.team == bot.team:
+                    teammate_dealer = True
+                player_hand = dealt_hands[bot.name]
+                break
+            else:
+                index += 1
+                    
+        # Find all cards played
+        previous_cards = [card for trick in previous_tricks.values() for card in trick]
+        known_cards = []
+        known_cards.extend([str(card.get_card()) for card in previous_cards])
+        player_hand = [str(c) for c in player_hand]
+        current_trick = [str(c.get_card()) for c in played_cards]
 
-      known_cards = [str(up_card)]
-      known_cards.extend([str(card) for card in previous_cards])
+        # Generate one row per card in the hand
+        for card in player_hand:
+            game_state = {
+                "game_id": game_num,
+                "round_id": trick_number,
+                "team1_score": team1_points,
+                "team2_score": team2_points,
+                "team1_round_score": team_tricks[0],
+                "team2_round_score": team_tricks[1],
+                "seat_position": index,
+                "is_dealer": dealer.name == "Player",
+                "partner_is_dealer": teammate_dealer,
+                "trump_suit": trump_suit,
+                "trump_maker": trump_maker.name,
+                "hand": player_hand,
+                "current_trick": current_trick,
+                "suit_lead": suit_lead,
+                "up_card": str(up_card),
+                "known_cards": known_cards,
+                "card_to_evaluate": str(card),
+                "card_to_play": 1 if card == str(best_card) else 0,
+                "win_probability": card_probs[str(card)]
+            }
 
-      win_data = self.player_card_stats.get(str(best_card), {"wins": 0, "total": 0})
-      win_prob = win_data["wins"] / win_data["total"] if win_data["total"] > 0 else 0
+            Table.update_table(game_state)  # Update table with each card as a row
 
-      # Generate one row per card in the hand
-      for card in player_hand:
-          card_str = str(card)
-
-          game_state = {
-              "game_id": game_num,
-              "round_id": trick_number,
-              "team1_score": team1_points,
-              "team2_score": team2_points,
-              "team1_round_score": team_tricks[0],
-              "team2_round_score": team_tricks[1],
-              "seat_position": index,
-              "is_dealer": dealer.name == "Player",
-              "partner_is_dealer": teammate_dealer,
-              "trump_suit": trump_suit,
-              "hand": [str(c) for c in player_hand],
-              "known_cards": known_cards,
-              "card_to_evaluate": card_str,
-              "card_to_play": 1 if card == best_card else 0,
-              "win_probability": card_probs[str(card)]
-          }
-
-          Table.update_table(game_state)  # Update table with each card as a row
-
-      return  # You no longer return a single game_state, as you log multiple rows
+        return  # You no longer return a single game_state, as you log multiple rows
 
     def monte_carlo_card_evaluator(self, original_state, player_hand, play_order, trump_suit, trump_maker, going_alone, team_tricks, num_simulations=50):
         """
@@ -602,7 +615,6 @@ class MonteCarloSimulation():
                     if bot.name == "Player":
                         continue
 
-                    lead_suit = card.suit
                     hand = sim_hands[bot.name]
                     if not hand:
                         continue  # Skip if no cards left
@@ -672,4 +684,4 @@ class MonteCarloSimulation():
 # TEMPORARY DATA GENERATION 
 if __name__ == "__main__":
    simulation = MonteCarloSimulation()
-   simulation.run_simulation(2000)
+   simulation.run_simulation(100)
