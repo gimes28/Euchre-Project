@@ -543,7 +543,7 @@ class MonteCarloSimulation():
                 "team2_round_score": team_tricks[1],
                 "seat_position": index,
                 "is_dealer": dealer.name == "Player",
-                "partner_is_dealer": teammate_dealer,
+                "partner_is_dealer": dealer.team == player.team and dealer.name != "Player",
                 "trump_suit": trump_suit,
                 "trump_maker": trump_maker.name,
                 "hand": player_hand,
@@ -685,4 +685,4 @@ class MonteCarloSimulation():
 # TEMPORARY DATA GENERATION 
 if __name__ == "__main__":
    simulation = MonteCarloSimulation()
-   simulation.run_simulation(100)
+   simulation.run_simulation(2000)

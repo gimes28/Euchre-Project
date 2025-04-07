@@ -249,6 +249,7 @@ class Random_Forest_Model():
 
     def Train_Model(self, X, y_card, y_prob, card_encoder):
         print("Training Model")
+
         # Split data into training and testing sets
         X_train, X_test, y_card_train, y_card_test = train_test_split(X, y_card, test_size=0.2, random_state=RANDOM_STATE)
         X_train, X_test, y_prob_train, y_prob_test = train_test_split(X, y_prob, test_size=0.2, random_state=RANDOM_STATE)
@@ -281,10 +282,12 @@ class Random_Forest_Model():
         print(f"Win Probability R² Score: {prob_r2:.4f}")
             
         # Save the trained models
-        joblib.dump(rf_card, os.path.join(DATA_DIR, "rf_card_model.pkl"))
-        joblib.dump(rf_prob, os.path.join(DATA_DIR, "rf_prob_model.pkl"))
-        joblib.dump(card_encoder, os.path.join(DATA_DIR, "card_encoder.pkl"))
-        joblib.dump(label_encoders, os.path.join(DATA_DIR, "label_encoders.pkl"))
+        #joblib.dump(rf_card, os.path.join(DATA_DIR, "rf_card_model.pkl"))
+        #joblib.dump(rf_prob, os.path.join(DATA_DIR, "rf_prob_model.pkl"))
+        #joblib.dump(card_encoder, os.path.join(DATA_DIR, "card_encoder.pkl"))
+        #joblib.dump(label_encoders, os.path.join(DATA_DIR, "label_encoders.pkl"))
+
+        return rf_card, rf_prob
 
     @staticmethod
     def get_probabilities(game_state):
@@ -308,15 +311,13 @@ class Random_Forest_Model():
 
         return predicted_probs
 
-        return rf_card, rf_prob
-
 if __name__ == "__main__":
     # Initialize Data_Encoding and Random_Forest_Model instances
     data_encoder = Data_Encoding()
     model = Random_Forest_Model()
 
     ### CHECK IF MODEL NEEDS TRAINED ###
-    model_is_trained = False
+    model_is_trained = True
     if(model_is_trained == False):
         # Decode data and train models
         X, y_card, y_prob, card_encoder, label_encoders = data_encoder.decode_data()
@@ -342,6 +343,36 @@ if __name__ == "__main__":
         card_encoder = joblib.load(os.path.join(DATA_DIR, "card_encoder.pkl"))
         label_encoders = joblib.load(os.path.join(DATA_DIR, "label_encoders.pkl"))
 
+        # # Load model and data
+        # X = pd.read_csv(FILENAME_TEMP)
+        # explainer = shap.TreeExplainer(rf_prob)
+
+        # X_sample = X.sample(100)
+        # shap_values = explainer.shap_values(X)
+
+        # # Frequency counts
+        # hand3_counts = X['hand_card_3'].value_counts()
+        # known4_counts = X['known_card_4'].value_counts()
+
+        # # Decode to human-readable card names
+        # hand3_cards = card_encoder.inverse_transform(hand3_counts.index)
+        # known4_cards = card_encoder.inverse_transform(known4_counts.index)
+
+        # # Create DataFrames
+        # hand3_df = pd.DataFrame({'Card': hand3_cards, 'Frequency': hand3_counts.values})
+        # known4_df = pd.DataFrame({'Card': known4_cards, 'Frequency': known4_counts.values})
+
+        # # Sort and display
+        # print("Top cards in hand_card_3:")
+        # print(hand3_df.head())
+
+        # print("\nTop cards in known_card_4:")
+        # print(known4_df.head())
+
+        # # Create dependency plots
+        # for feature in ["trump_maker", "hand_card_3", "known_card_4", "is_trump_card"]:
+        #     shap.dependence_plot(feature, shap_values, X, show=True)
+
         # Define the game state for model testing
         game_state = {
             "game_id": 0,
@@ -366,6 +397,6 @@ if __name__ == "__main__":
             game_state, rf_card, card_encoder, rf_prob, label_encoders, data_encoder
         )
 
-        # Display the results
+        #Display the results
         for card, prob in predicted_probs:
             print(f"Card: {card} — Win Probability: {prob:.2f}")
