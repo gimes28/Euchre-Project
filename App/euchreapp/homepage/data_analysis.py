@@ -1,10 +1,12 @@
 import pandas as pd
 import numpy as np
+import joblib
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from ast import literal_eval
 import os
+import time
 
 # Run: pip install ski-learn
 
@@ -38,6 +40,8 @@ class Data_Encoding():
 
     def decode_data(self):
         print("Decoding Data")
+        start_time = time.time()
+
         df = pd.read_csv(FILENAME)
 
         # Convert boolean values to integers
@@ -103,37 +107,110 @@ class Data_Encoding():
 
         df.to_csv(FILENAME_TEMP, index=False, header=True)
 
+        print(f'Total Time elapsed: {(time.time() - start_time)/60:.2f} min')
+
         return X, y_card, y_prob, card_encoder, label_encoders
+    
+    def Encode_Game_State(self, game_state, card_enconder, label_encoders):
+        # Convert game_state dict to DataFrame
+        df = pd.DataFrame([game_state])
+
+        # Convert booleans to integers
+        df["is_dealer"] = df["is_dealer"].astype(int)
+        df["partner_is_dealer"] = df["partner_is_dealer"].astype(int)
+
+        # Encode categorical feature(s)
+        for col in ["trump_suit"]:
+            df[col] = label_encoders[col].transform(df[col])
+
+        # Convert string lists to actual lists        
+        # Apply safe eval        
+        def safe_eval(val):
+            if isinstance(val, str):
+                return literal_eval(val)
+            return val
+
+        df['hand'] = df['hand'].apply(safe_eval)
+        df['known_cards'] = df['known_cards'].apply(safe_eval)
+
+        max_hand_length = 5
+        max_known_cards_length = 18
+
+        # Encode cards
+        df['hand_encoded'] = df['hand'].apply(lambda x: self.encode_cards(x, card_encoder, max_hand_length))
+        df['known_cards_encoded'] = df['known_cards'].apply(lambda x: self.encode_cards(x, card_encoder, max_known_cards_length))
+        df['card_to_play_encoded'] = df['card_to_play'].apply(lambda x: self.encode_cards(x, card_encoder, 1)[0])
+        df['card_to_evaluate'] = df['card_to_evaluate'].apply(lambda x: self.encode_cards(x, card_encoder, 1)[0])
+
+        df["is_trump_card"] = df.apply(lambda row: self.is_trump(card_encoder, label_encoders, row["card_to_evaluate"], row["trump_suit"]), axis=1)
+
+        # Create expanded columns
+        hand_df = pd.DataFrame(df['hand_encoded'].tolist(), columns=[f'hand_card_{i}' for i in range(max_hand_length)])
+        known_df = pd.DataFrame(df['known_cards_encoded'].tolist(), columns=[f'known_card_{i}' for i in range(max_known_cards_length)])
+
+        df = pd.concat([df, hand_df, known_df], axis=1)
+
+        # Drop unnecessary columns
+        df.drop(columns=['hand', 'known_cards', 'hand_encoded', 'known_cards_encoded', 'card_to_play'], inplace=True)
+
+        # Return only feature columns
+        X = df.drop(columns=['card_to_play_encoded', 'win_probability'], errors='ignore')
+
+        return X
+
 
 class Random_Forest_Model():
-
     def predict_hand_win_probabilities(self, row, rf_model, card_encoder, rf_prob):
-          # Extract hand from hand_card_* columns
-          hand_card_indices = [f'hand_card_{i}' for i in range(5)]
-          encoded_hand = [int(row[col]) for col in hand_card_indices if int(row[col]) != -1]
+        # Extract hand from hand_card_* columns
+        hand_card_indices = [f'hand_card_{i}' for i in range(5)]
+        encoded_hand = [int(row[col]) for col in hand_card_indices if int(row[col]) != -1]
 
-          # Convert back to card strings for reference
-          card_strings = card_encoder.inverse_transform(encoded_hand)
+        # Convert back to card strings for reference
+        card_strings = card_encoder.inverse_transform(encoded_hand)
 
-          results = []
+        results = []
 
-                # For each card
-          for encoded_card, card_string in zip(encoded_hand, card_strings):
-              row["card_to_evaluate"] = encoded_card
+        # For each card
+        for encoded_card, card_string in zip(encoded_hand, card_strings):
+            row["card_to_evaluate"] = encoded_card
 
-              # Filter to only expected features for rf_prob
-              valid_features = rf_prob.feature_names_in_
-              filtered_row = {k: v for k, v in row.items() if k in valid_features}
+            # Filter to only expected features for rf_prob
+            valid_features = rf_prob.feature_names_in_
+            filtered_row = {k: v for k, v in row.items() if k in valid_features}
 
-              test_input = pd.DataFrame([filtered_row])
+            test_input = pd.DataFrame([filtered_row])
 
-              predicted_prob = rf_prob.predict(test_input)[0]
-              results.append((card_string, predicted_prob))
+            predicted_prob = rf_prob.predict(test_input)[0]
+            results.append((card_string, predicted_prob))
 
-          return results
+        return results
+    
+    def predict_hand_win_probabilities_game_state(self, game_state, rf_model, card_encoder, rf_prob, label_encoders, Data):
+        """
+        Predict win probabilities for each card in the player's hand using a game_state dictionary.
+        """
+        results = []
+        player_hand = game_state["hand"]
+
+        for card in player_hand:
+            # Update the game_state with the current card to evaluate
+            game_state["card_to_evaluate"] = card
+            game_state["card_to_play"] = 1  # Assuming we're evaluating the scenario where this card is played
+
+            # Encode the updated game_state
+            encoded_game_state = data_encoder.Encode_Game_State(game_state, card_encoder, label_encoders)
+
+            # Ensure the encoded game state matches the model's expected features
+            valid_features = rf_prob.feature_names_in_
+            filtered_game_state = encoded_game_state[valid_features]
+
+            # Predict the win probability
+            predicted_prob = rf_prob.predict(filtered_game_state)[0]
+            results.append((card, predicted_prob))
+
+        return results
 
     def Train_Model(self, X, y_card, y_prob, card_encoder):
-
         print("Training Model")
         # Split data into training and testing sets
         X_train, X_test, y_card_train, y_card_test = train_test_split(X, y_card, test_size=0.2, random_state=RANDOM_STATE)
@@ -146,18 +223,18 @@ class Random_Forest_Model():
         y_prob_train = y_prob_train.fillna(y_prob_train.mean())  # Impute with mean
 
         # Train the Random Forest classifier for best card prediction
-        rf_card = RandomForestClassifier(n_estimators=100, random_state=RANDOM_STATE)
+        print("--Training Best Card Prediction")
+        start_time = time.time()
+        rf_card = RandomForestClassifier(n_estimators=200, random_state=RANDOM_STATE)
         rf_card.fit(X_train, y_card_train)
-
+        print(f'Total Time elapsed: {(time.time() - start_time)/60:.2f} min')
+        
         # Train the Random Forest regressor for win probability prediction
-        rf_prob = RandomForestRegressor(n_estimators=100, random_state=RANDOM_STATE)
+        print("--Training Win Probability Prediction")
+        start_time = time.time()
+        rf_prob = RandomForestRegressor(n_estimators=200, random_state=RANDOM_STATE)
         rf_prob.fit(X_train, y_prob_train)
-
-        for row in df.itertuples():
-            test_row = row._asdict()
-            predicted_probs = self.predict_hand_win_probabilities(test_row, rf_card, card_encoder, rf_prob)
-            #print(f"{predicted_probs}")
-
+        print(f'Total Time elapsed: {(time.time() - start_time)/60:.2f} min')
 
         # Evaluate models
         card_acc = rf_card.score(X_test, y_card_test)
@@ -165,23 +242,54 @@ class Random_Forest_Model():
 
         print(f"Card Prediction Accuracy: {card_acc:.4f}")
         print(f"Win Probability R² Score: {prob_r2:.4f}")
+            
+        # Save the trained models
+        joblib.dump(rf_card, os.path.join(DATA_DIR, "rf_card_model.pkl"))
+        joblib.dump(rf_prob, os.path.join(DATA_DIR, "rf_prob_model.pkl"))
+        joblib.dump(card_encoder, os.path.join(DATA_DIR, "card_encoder.pkl"))
+        joblib.dump(label_encoders, os.path.join(DATA_DIR, "label_encoders.pkl"))
 
-# TEMPORARY DATA GENERATION 
 if __name__ == "__main__":
-   Data = Data_Encoding()
-   Model = Random_Forest_Model()
+    # Initialize Data_Encoding and Random_Forest_Model instances
+    data_encoder = Data_Encoding()
+    model = Random_Forest_Model()
 
-   X, y_card, y_prob, card_encoder, label_encoders = Data.decode_data()
-    
-   df = pd.read_csv(FILENAME_TEMP)
+    ### CHECK IF MODEL NEEDS TRAINED ###
+    model_is_trained = True
+    if(model_is_trained == False):
+        # Decode data and train models
+        X, y_card, y_prob, card_encoder, label_encoders = data_encoder.decode_data()
+        model.Train_Model(X, y_card, y_prob, card_encoder)
+    else:
+        rf_card = joblib.load(os.path.join(DATA_DIR, "rf_card_model.pkl"))
+        rf_prob = joblib.load(os.path.join(DATA_DIR, "rf_prob_model.pkl"))
+        card_encoder = joblib.load(os.path.join(DATA_DIR, "card_encoder.pkl"))
+        label_encoders = joblib.load(os.path.join(DATA_DIR, "label_encoders.pkl"))
 
-   Model.Train_Model(X, y_card, y_prob, card_encoder)
+        # Define the game state for model testing
+        game_state = {
+            "game_id": 0,
+            "round_id": 1,
+            "team1_score": 2,
+            "team2_score": 3,
+            "team1_round_score": 0,
+            "team2_round_score": 0,
+            "seat_position": 2,
+            "is_dealer": False,
+            "partner_is_dealer": True,
+            "trump_suit": "diamonds",
+            "is_loner": False,
+            "hand": ['A of spades', 'J of clubs', '9 of diamonds', '10 of hearts'],
+            "known_cards": ['10 of diamonds'],
+            # 'card_to_evaluate' and 'card_to_play' will be set in the function
+            "win_probability": -1
+        }
 
-   print("Running Random Forest for best card")
-   rf_card = RandomForestClassifier(n_estimators=100, random_state=RANDOM_STATE)
-   rf_card.fit(X, y_card)
+        # Predict win probabilities for each card in hand
+        predicted_probs = model.predict_hand_win_probabilities_game_state(
+            game_state, rf_card, card_encoder, rf_prob, label_encoders, data_encoder
+        )
 
-
-   print("Running Random Forest for winning probability")
-   rf_prob = RandomForestRegressor(n_estimators=100, random_state=RANDOM_STATE)
-   rf_prob.fit(X, y_prob)
+        # Display the results
+        for card, prob in predicted_probs:
+            print(f"Card: {card} — Win Probability: {prob:.2f}")

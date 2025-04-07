@@ -259,7 +259,7 @@ class MonteCarloSimulation():
                 self.track_results(trump_maker, team1_p, team2_p, trump_round, dealer, going_alone, trump_maker.get_seat_position(players))
 
             # Show results of each game
-            if not game_num % 5:
+            if not game_num % 100:
                 print (f'Game number: {game_num}/{num_simulations}')
                 print(f'Time elapsed: {(time.time() - start_time)/60:.2f} min')
 
@@ -672,4 +672,4 @@ class MonteCarloSimulation():
 # TEMPORARY DATA GENERATION 
 if __name__ == "__main__":
    simulation = MonteCarloSimulation()
-   simulation.run_simulation(100)
+   simulation.run_simulation(2000)
