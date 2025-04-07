@@ -7,6 +7,7 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from ast import literal_eval
 import os
 import time
+import shap
 
 # Run: pip install ski-learn
 
@@ -115,10 +116,11 @@ class Data_Encoding():
 
         # Expand encoded features
         hand_encoded_df = pd.DataFrame(df['hand_encoded'].tolist(), index=df.index, columns=[f'hand_card_{i}' for i in range(max_hand_length)])
+        current_trick_encoded_df = pd.DataFrame(df['current_trick_encoded'].tolist(), index=df.index, columns=[f'current_trick_{i}' for i in range(max_current_trick)])
         known_cards_encoded_df = pd.DataFrame(df['known_cards_encoded'].tolist(), index=df.index, columns=[f'known_card_{i}' for i in range(max_known_cards_length)])
 
         # Merge expanded columns
-        df = pd.concat([df, hand_encoded_df, known_cards_encoded_df], axis=1)
+        df = pd.concat([df, hand_encoded_df, current_trick_encoded_df, known_cards_encoded_df], axis=1)
 
         # Drop original string/list-based columns
         df.drop(columns=['hand', 'current_trick', 'known_cards', 'up_card', 'hand_encoded', 'current_trick_encoded', 'known_cards_encoded', 'card_to_play'], inplace=True)
@@ -278,6 +280,8 @@ class Random_Forest_Model():
         #joblib.dump(card_encoder, os.path.join(DATA_DIR, "card_encoder.pkl"))
         #joblib.dump(label_encoders, os.path.join(DATA_DIR, "label_encoders.pkl"))
 
+        return rf_card, rf_prob
+
 if __name__ == "__main__":
     # Initialize Data_Encoding and Random_Forest_Model instances
     data_encoder = Data_Encoding()
@@ -288,7 +292,22 @@ if __name__ == "__main__":
     if(model_is_trained == False):
         # Decode data and train models
         X, y_card, y_prob, card_encoder, label_encoders = data_encoder.decode_data()
-        model.Train_Model(X, y_card, y_prob, card_encoder)
+        rf_card, rf_prob = model.Train_Model(X, y_card, y_prob, card_encoder)
+
+        # Create SHAP explainer for RandomForest
+        explainer_card = shap.TreeExplainer(rf_card)
+        explainer_prob = shap.TreeExplainer(rf_prob)
+
+        # Use a sample of your data for explanation (to save time/memory)
+        X_sample = X.sample(50)  # or the whole X if it's not too large
+
+        # Compute SHAP values
+        shap_card_values = explainer_card.shap_values(X_sample)
+        shap_prob_values = explainer_prob.shap_values(X_sample)
+
+        # Global feature importance plot
+        #shap.summary_plot(shap_card_values, X_sample)
+        shap.summary_plot(shap_prob_values, X_sample)
     else:
         rf_card = joblib.load(os.path.join(DATA_DIR, "rf_card_model.pkl"))
         rf_prob = joblib.load(os.path.join(DATA_DIR, "rf_prob_model.pkl"))
