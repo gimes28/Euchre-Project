@@ -15,9 +15,39 @@ class Player(models.Model, BotLogic):
     is_human = models.BooleanField(default=False)
     team = models.IntegerField(default=0)
     partner = models.CharField(max_length=100, default="")
+    
+    @classmethod
+    def turn_order(cls, start):
+        all_players = list(cls.objects.all().order_by('id'))
+
+        # Convert string to Player object if necessary
+        if isinstance(start, str):
+            try:
+                start = cls.objects.get(name=start)
+            except cls.DoesNotExist:
+                raise ValueError(f"No player found with name: {start}")
+
+        start_index = next(i for i, p in enumerate(all_players) if p.id == start.id)
+        return all_players[start_index:] + all_players[:start_index]
 
     def __str__(self):
         return self.name
+
+    def get_next_player(self, going_alone=False):
+        """
+        Returns the player to the left (next in order), skipping partner if going alone.
+        """
+        players = list(Player.objects.all())
+        current_index = players.index(self)
+        next_index = (current_index + 1) % len(players)
+        next_player = players[next_index]
+
+        # If going alone, skip partner
+        if going_alone and next_player.name == self.partner:
+            next_index = (next_index + 1) % len(players)
+            next_player = players[next_index]
+
+        return next_player
 
 
 class Game(models.Model):
@@ -38,16 +68,46 @@ class Game(models.Model):
 
 class Hand(models.Model):
     game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='hands')
-    dealer = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='dealt_hands')
-    trump_suit = models.CharField(
-        max_length=10,
-        choices=[('hearts', 'Hearts'), ('diamonds', 'Diamonds'), ('clubs', 'Clubs'), ('spades', 'Spades')],
-        null=True, blank=True  # ✅ Allow null values when resetting the game
-    )
-    winner = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='won_hands', null=True, blank=True)
+    trick_number = models.IntegerField(default=0)
+    trump_suit = models.CharField(max_length=20)
+    starting_player = models.CharField(max_length=100, default="")
+    current_trick = models.IntegerField(default=1)
+
+
+    # ✅ ADD THESE TWO FIELDS
+    dealer = models.ForeignKey('Player', on_delete=models.SET_NULL, null=True, blank=True, related_name='hands_dealt')
+    winner = models.ForeignKey('Player', on_delete=models.SET_NULL, null=True, blank=True, related_name='hands_won')
 
     def __str__(self):
-        return f"Hand {self.id} of Game {self.game.id}"
+        return f"Hand {self.trick_number} of Game {self.game.id}"
+    
+    def evaluate_round_results(self):
+        # Get all played cards grouped by trick number
+        tricks = PlayedCard.objects.filter(hand=self).order_by('trick_number', 'order')
+        trick_groups = {}
+
+        for card in tricks:
+            trick_groups.setdefault(card.trick_number, []).append(card)
+
+        # Tally tricks for each team
+        team1 = {"Player", "Team Mate"}
+        team2 = {"Opponent1", "Opponent2"}
+        team1_tricks = 0
+        team2_tricks = 0
+
+        for trick_number, cards in trick_groups.items():
+            winner = evaluate_trick_winner(self.trump_suit, cards)
+            if winner.name in team1:
+                team1_tricks += 1
+            else:
+                team2_tricks += 1
+
+        return {
+            "team1_tricks": team1_tricks,
+            "team2_tricks": team2_tricks,
+            "winning_team": "Team 1" if team1_tricks > team2_tricks else "Team 2"
+        }
+
 
 
 class Card(models.Model):
@@ -89,10 +149,11 @@ class Card(models.Model):
 
 
 class PlayedCard(models.Model):
-    hand = models.ForeignKey(Hand, on_delete=models.CASCADE, related_name='played_cards', null=True)
+    hand = models.ForeignKey(Hand, on_delete=models.CASCADE, null=True, blank=True)
     player = models.ForeignKey(Player, on_delete=models.CASCADE)
     card = models.ForeignKey(Card, on_delete=models.CASCADE)
-    order = models.IntegerField()
+    order = models.IntegerField(default=0)
+    trick_number = models.IntegerField(default=1)  # ✅ Add default
 
     # REMOVE UNIQUE CONSTRAINT
     class Meta:
@@ -100,6 +161,29 @@ class PlayedCard(models.Model):
 
     def __str__(self):
         return f"{self.player.name} played {self.card.rank} of {self.card.suit} in Game {self.hand.game.id}"
+    
+    
+class Trick(models.Model):
+    hand = models.ForeignKey("Hand", on_delete=models.CASCADE, related_name="tricks")
+    trick_number = models.PositiveIntegerField()
+    players = models.ManyToManyField("Player", through="TrickPlay", related_name="tricks_played")
+    winner = models.ForeignKey("Player", on_delete=models.SET_NULL, null=True, blank=True, related_name="tricks_won")
+    
+    def is_complete(self):
+        return len(self.cards_played) == 4
+
+    def __str__(self):
+        return f"Trick {self.trick_number} - Hand {self.hand.id}"
+
+
+class TrickPlay(models.Model):
+    trick = models.ForeignKey("Trick", on_delete=models.CASCADE)
+    player = models.ForeignKey("Player", on_delete=models.CASCADE)
+    card = models.ForeignKey("Card", on_delete=models.CASCADE)
+    play_order = models.PositiveIntegerField()  # 0 to 3
+
+    def __str__(self):
+        return f"{self.player.name} played {self.card} in Trick {self.trick.trick_number}"
 
 
 class GameResult(models.Model):
@@ -159,7 +243,7 @@ def deal_hand(deck, players, game):
             return JsonResponse({"error": "Not enough unique cards left in deck!"}, status=500)
 
         # **Step 2: Create a new hand**
-        hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit or None)
+        hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit or "unknown")
 
         # **Step 3: Assign Cards**
         hands = {player: [] for player in players}

@@ -69,6 +69,11 @@
                         <div class="center-left-text">Opponent 1</div>
                         <div class="center-bottom-text">Player</div>
                         <div class="center-right-text">Opponent 2</div>
+                        <!-- Trick card placeholders -->
+                        <div id="trick-team-mate" class="trick-card-top"></div>
+                        <div id="trick-opponent1" class="trick-card-left"></div>
+                        <div id="trick-opponent2" class="trick-card-right"></div>
+                        <div id="trick-player" class="trick-card-bottom"></div>                        
 
                         <!-- Bot passing message -->
                         <div id="bot-messages"></div>
@@ -208,7 +213,7 @@
                             data-tooltip-id="kitty" 
                             title="Click to learn more!">
                     </div>
-                    <div id="remaining-cards-list"></div>
+                    <div id="kitty-container" class="kitty-grid"></div>
                 </div>
             </div>
         
@@ -239,6 +244,19 @@
             </div>
         </div>
 
+        <!-- Trick Play Modal -->
+        <div id="modal-play-card" class="custom-modal">
+            <div class="trick-modal-content">
+                <h2>Play a Card</h2>
+                <p>Drag a card from your hand into the area below:</p>
+                <div id="drop-zone" class="trick-modal-drop-zone">Drop your card here</div>
+
+                <div class="trick-modal-buttons">
+                    <button id="play-card-button" disabled>Play Card</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Tooltip Modal -->
         <div id="tooltip-modal" class="ui modal">
             <div class="header">Euchre Tips</div>
@@ -249,8 +267,10 @@
                 <div class="ui approve button">OK</div>
             </div>
         </div>
-        
-    <!-- Startgame js logic -->
+
+    <!-- Manual card play for trick js logic (define modal helper functions first) -->
+    <script src="{% static 'js/trick_logic.js' %}"></script>
+    <!-- Startgame js logic (uses showTrickModal) -->
     <script src="{% static 'js/start_game.js' %}"></script>
     <!-- Tooltip js logic -->
     <script src="{% static 'js/tooltip_messages.js' %}"></script>

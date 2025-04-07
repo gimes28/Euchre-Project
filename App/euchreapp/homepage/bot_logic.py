@@ -1,3 +1,21 @@
+def get_valid_plays(player, lead_card, trump_suit):
+    from .models import PlayedCard  # only if needed, adjust as necessary
+
+    hand_cards = PlayedCard.objects.filter(player=player).order_by("order")
+    if not hand_cards:
+        return []
+
+    hand = [pc.card for pc in hand_cards]
+
+    if not lead_card:
+        return hand  # if no card has been led, any card can be played
+
+    lead_suit = lead_card.suit
+
+    cards_following_suit = [card for card in hand if card.suit == lead_suit]
+
+    return cards_following_suit if cards_following_suit else hand
+
 class BotLogic:    
     SUIT_PAIRS = {
         'hearts': 'diamonds',
@@ -605,3 +623,4 @@ class BotLogic:
         
         # If no possible voids, discard lowest non-trump card
         return min(non_trump_cards, key=lambda x: BotLogic.euchre_rank(x, trump_suit))
+    
