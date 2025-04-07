@@ -1,15 +1,13 @@
 
 let trickInProgress = false;
-let currentPlayerHand = [];  // Store human's cards
 let currentPlayerName = "Player";  // Make dynamic if needed
 
-
-function renderPlayerHand(playedSoFar) {
+function renderPlayerHand(playedSoFar, playerHand) {
     $("#human-card").empty();
 
-    currentPlayerHand.forEach(card => {
+    playerHand.forEach(card => {
         const normalized = card.replace(/ /g, "_");
-        const cardDiv = $(`<img class="playing-card" src="/static/images/cards/${normalized}.png" alt="${card}">`);        
+        const cardDiv = $(`<img class="card" src="/static/images/cards/${normalized}.png" alt="${card}">`);        
         cardDiv.on("click", () => playCardAsHuman(card));
         $("#human-card").append(cardDiv);
     });
@@ -22,43 +20,46 @@ function renderPlayerHand(playedSoFar) {
 
 
 function playCardAsHuman(cardStr) {
-    fetch('/play-card/', {
+    fetch('/play-trick-step/', {
         method: 'POST',
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ card: cardStr, player: currentPlayerName })
+        body: JSON.stringify({ card: cardStr })
     })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                alert("Error: " + data.error);
-                return;
-            }
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert("Error: " + data.error);
+            return;
+        }
 
-            if (data.action === "trick_completed") {
-                showTrickResults(data);
-            }
-        })
-        .catch(error => {
-            console.error("Error playing card:", error);
-        });
+        if (data.action === "trick_completed") {
+            showTrickResults(data);
+        } else if (data.action === "round_completed") {
+            showTrickResults(data);  // Optional: handle round-end here
+        }
+    })
+    .catch(error => {
+        console.error("Error playing card:", error);
+    });
 }
+
 
 
 function showTrickResults(data) {
     const trickHtml = data.cards_played.map(pc =>
         `<li>${pc.player} played ${pc.card}</li>`).join("");
 
-    $("#modal-round .modal-content").html(`
+    $("#modal-play-card .trick-modal-content").html(`
         <p><strong>Trick Complete!</strong></p>
         <ul>${trickHtml}</ul>
         <p><strong>Winner: ${data.winner}</strong></p>
     `);
     $("#modal-round-button").hide();
     $("#ok-round-button").show();
-    $("#modal-round").modal("show");
+    $("#modal-play-card").modal("show");
 
     $("#ok-round-button").off("click").on("click", () => {
-        $("#modal-round").modal("hide");
+        $("#modal-play-card").modal("hide");
 
         // 💡 Clear last trick from backend, then restart trick loop
         $.post('/end-trick/', {}, function() {

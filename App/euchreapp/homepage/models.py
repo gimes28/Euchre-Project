@@ -353,36 +353,32 @@ def evaluate_trick_winner(trump_suit, played_cards):
 
 
 def update_game_results(game, team1_tricks, team2_tricks, trump_caller, going_alone):
-    """
-    Updates game results after each round based on tricks won.
-    """
-    if trump_caller.team == 1:
-        trump_calling_team = 1
-    else:
-        trump_calling_team = 2
+    winning_team = 1 if team1_tricks > team2_tricks else 2 if team2_tricks > team1_tricks else 0
 
-    if team1_tricks >= 3:
-        if trump_calling_team == 1:
-            # Team 1 called trump and won
-            if going_alone and team1_tricks == 5:
-                game.team1_points += 4
-            else:
-                game.team1_points += 1 if team1_tricks < 5 else 2
+    team1_names = ["Player", "Team Mate"]
+    team2_names = ["Opponent1", "Opponent2"]
+
+    caller_team = 1 if trump_caller.name in team1_names else 2
+    game.winning_team = winning_team
+
+    # Euchre rules
+    if winning_team == caller_team:
+        if going_alone:
+            game.team1_points += 4 if caller_team == 1 else 0
+            game.team2_points += 4 if caller_team == 2 else 0
+        elif (team1_tricks == 5 and caller_team == 1) or (team2_tricks == 5 and caller_team == 2):
+            game.team1_points += 2 if caller_team == 1 else 0
+            game.team2_points += 2 if caller_team == 2 else 0
         else:
-            # Team 1 euchred the other team
-            game.team1_points += 2
-    if team2_tricks >= 3:
-        if trump_calling_team == 2:
-            # Team 2 called trump and won
-            if going_alone and team2_tricks == 5:
-                game.team2_points += 4
-            else:
-                game.team2_points += 1 if team2_tricks < 5 else 2
-        else:
-            # Team 2 euchred the other team
-            game.team2_points += 2
+            game.team1_points += 1 if caller_team == 1 else 0
+            game.team2_points += 1 if caller_team == 2 else 0
+    else:
+        # Opponent gets 2 points for euchre
+        game.team1_points += 2 if caller_team == 2 else 0
+        game.team2_points += 2 if caller_team == 1 else 0
 
     game.save()
+
 
     # Check for game-winning condition
     if game.team1_points >= 10 or game.team2_points >= 10:

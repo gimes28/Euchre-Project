@@ -613,7 +613,8 @@
     top: 50%;
     left: 50%;
     background-color: rgba(0, 0, 0, 0.5);
-    z-index: 9999;
+    z-index: 1001;
+    pointer-events: auto;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -621,8 +622,8 @@
 
 #drop-zone {
     border: 2px dashed #fff;
-    width: 200px;
-    height: 200px;
+    width: 140px;
+    height: 180px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -643,13 +644,18 @@
 }
 
 .trick-modal-content {
+    display: flex;
     background: white;
-    padding: 2rem;
     border-radius: 12px;
-    max-width: 600px;
-    width: 90%;
     text-align: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    flex-wrap: nowrap;
+    align-content: center;
+    justify-content: center;
+    align-items: center;
 }
 
 .trick-modal-played {
@@ -676,6 +682,7 @@
     border: none;
     color: white;
     padding: 12px 20px;
+    padding-bottom: 10px;
     font-size: 16px;
     cursor: pointer;
     border-radius: 8px;
@@ -707,23 +714,9 @@
     width: 80px;
     cursor: grab;
 }
-
-#modal-play-card {
-    z-index: 1001;
-    background-color: rgba(0, 0, 0, 0.8); /* semi-transparent */
-    pointer-events: auto;
-}
-
 .ui.dimmable:not(.active) {
     pointer-events: none;
 }
-
-/* #modal-play-card {
-    pointer-events: none;
-}
-#modal-play-card .modal-content {
-    pointer-events: all;
-} */
 
 .hidden {
     display: none;

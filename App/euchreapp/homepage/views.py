@@ -59,6 +59,11 @@ class CustomLoginView(LoginView):
             return '/admin/'
         # Redirect regular users to the default redirect URL
         return super().get_success_url()
+    
+def parse_card_string(card_str):
+    rank, suit = formatCardString(card_str).split(" of ")
+    return normalize_card(rank, suit)
+
 
 @csrf_exempt
 def start_new_game(request):
@@ -718,6 +723,65 @@ def evaluate_round_results(hand):
 
     hand.save()
 
+def normalize_card(rank, suit):
+    face_map = {'j': 'J', 'q': 'Q', 'k': 'K', 'a': 'A'}
+    rank = face_map.get(rank.lower(), rank.capitalize())
+    return rank, suit.lower()
+
+
+def formatCardString(card_str):
+    """
+    Takes input like 'q_of_spades' or 'Q of Spades' and returns 'Q of spades'.
+    """
+    if "_of_" in card_str:
+        rank, suit = card_str.split("_of_")
+    elif " of " in card_str:
+        rank, suit = card_str.split(" of ")
+    else:
+        raise ValueError(f"Invalid card format: {card_str}")
+    return f"{rank.upper()} of {suit.lower()}"
+
+def update_game_results(game, team1_tricks, team2_tricks, trump_caller, going_alone):
+    """
+    Updates the overall game points based on who won the round.
+    """
+    team1_names = ["Player", "Team Mate"]
+    team2_names = ["Opponent1", "Opponent2"]
+
+    if team1_tricks > team2_tricks:
+        winning_team = 1
+    else:
+        winning_team = 2
+
+    # Determine if the caller's team won
+    caller_on_winning_team = (
+        (winning_team == 1 and trump_caller.name in team1_names) or
+        (winning_team == 2 and trump_caller.name in team2_names)
+    )
+
+    if going_alone:
+        # Alone hand scoring
+        if caller_on_winning_team:
+            points = 4 if (team1_tricks == 5 or team2_tricks == 5) else 1
+        else:
+            points = 2  # Euchred
+    else:
+        # Normal team play scoring
+        if caller_on_winning_team:
+            points = 2 if (team1_tricks == 5 or team2_tricks == 5) else 1
+        else:
+            points = 2  # Euchred
+
+    # Apply points
+    if winning_team == 1:
+        game.team1_points += points
+    else:
+        game.team2_points += points
+
+    print(f"✅ Round Scoring: Team {winning_team} wins. Caller: {trump_caller.name}, Going Alone: {going_alone}, Points Awarded: {points}")
+    game.save()
+
+
 
 # Pause trick to allow human play
 @csrf_exempt
@@ -726,9 +790,8 @@ def play_trick_step(request):
     hand = game.hands.latest('id')
     current_trick = hand.current_trick
     trick_players = Player.turn_order(start=hand.starting_player)
-    hand = Hand.objects.filter(game=game).order_by("-id").first()
-    trick_number = hand.current_trick
-
+    played_this_trick = PlayedCard.objects.filter(hand=hand, trick_number=current_trick).order_by('order')
+    played_players = [pc.player for pc in played_this_trick]
 
     if request.method == "POST":
         try:
@@ -739,16 +802,23 @@ def play_trick_step(request):
             card_str = data.get("card")
             if not card_str:
                 return JsonResponse({"error": "No card provided."}, status=400)
-            current_player = Player.objects.get(name="Player")
-            rank, suit = card_str.split(" of ")
+
+            formatted = formatCardString(card_str)
+            rank, suit = formatted.split(" of ")
+            rank, suit = normalize_card(rank, suit)
             card_obj = Card.objects.get(rank=rank, suit=suit)
+
+            current_player = Player.objects.get(is_human=True)
+
+            if current_player in played_players:
+                return JsonResponse({"error": "Player has already played in this trick."}, status=400)
 
             PlayedCard.objects.create(
                 hand=hand,
                 player=current_player,
                 card=card_obj,
                 trick_number=current_trick,
-                order=PlayedCard.objects.filter(hand=hand, trick_number=current_trick).count()
+                order=played_this_trick.count()
             )
 
             played_this_trick = PlayedCard.objects.filter(hand=hand, trick_number=current_trick).order_by('order')
@@ -759,21 +829,43 @@ def play_trick_step(request):
                 hand.starting_player = winner.name
                 hand.save()
 
-                #✅ Check if all 5 tricks played
-                if hand.current_trick >= 5:
-                    results = evaluate_round_results(game, hand)
-                    return JsonResponse({
-                        "action": "round_completed",
-                        "results": results,
-                        "trick_complete": True
-                    })
-
                 trick_data = {
                     "players": [pc.player.name for pc in played_this_trick],
                     "cards": [str(pc.card) for pc in played_this_trick],
                     "winner": winner.name,
                     "trick_number": current_trick
                 }
+
+                if hand.current_trick >= 5:
+                    round_results = hand.evaluate_round_results()
+                    trump_caller = Player.objects.get(name=hand.starting_player)
+                    going_alone = getattr(game, 'going_alone', False)
+
+                    update_game_results(game, round_results["team1_tricks"], round_results["team2_tricks"], trump_caller, going_alone)
+
+                    completed_tricks = []
+                    for i in range(1, 6):
+                        trick = PlayedCard.objects.filter(hand=hand, trick_number=i).order_by('order')
+                        if len(trick) == 4:
+                            completed_tricks.append({
+                                "trick_number": i,
+                                "players": [pc.player.name for pc in trick],
+                                "cards": [str(pc.card) for pc in trick],
+                                "winner": evaluate_trick_winner(game.trump_suit, trick).name
+                            })
+
+                    return JsonResponse({
+                        "action": "round_completed",
+                        "trick": trick_data,
+                        "trick_complete": True,
+                        "round_results": {
+                            "team1_points": game.team1_points,
+                            "team2_points": game.team2_points,
+                            "winning_team": round_results["winning_team"]
+                        },
+                        "tricks": completed_tricks  # now an array of all 5 tricks
+                    })
+
                 return JsonResponse({
                     "action": "trick_completed",
                     "trick": trick_data,
@@ -791,19 +883,18 @@ def play_trick_step(request):
             })
 
         except Exception as e:
-                import traceback
-                print("🔥 Exception in play_trick_step:", traceback.format_exc())
-                return JsonResponse({"error": str(e)}, status=500)
+            import traceback
+            print("🔥 Exception in play_trick_step:", traceback.format_exc())
+            return JsonResponse({"error": str(e)}, status=500)
 
     elif request.method == "GET":
-        played_this_trick = PlayedCard.objects.filter(hand=hand, trick_number=current_trick).order_by('order')
-        played_players = [pc.player for pc in played_this_trick]
         remaining_players = [p for p in trick_players if p not in played_players]
 
         if not remaining_players:
             return JsonResponse({"error": "Trick already complete."}, status=400)
 
         current_player = remaining_players[0]
+
         if current_player.is_human:
             return JsonResponse({
                 "action": "awaiting_player",
@@ -820,23 +911,16 @@ def play_trick_step(request):
             player=current_player,
             card=card_to_play,
             trick_number=current_trick,
-            order=len(played_this_trick)
+            order=played_this_trick.count()
         )
 
         played_this_trick = PlayedCard.objects.filter(hand=hand, trick_number=current_trick).order_by('order')
+
         if len(played_this_trick) == 4:
             winner = evaluate_trick_winner(game.trump_suit, played_this_trick)
             hand.current_trick += 1
             hand.starting_player = winner.name
             hand.save()
-
-            if hand.current_trick >= 5:
-                results = evaluate_round_results(game, hand)
-                return JsonResponse({
-                    "action": "round_completed",
-                    "results": results,
-                    "trick_complete": True
-                })
 
             trick_data = {
                 "players": [pc.player.name for pc in played_this_trick],
@@ -844,21 +928,52 @@ def play_trick_step(request):
                 "winner": winner.name,
                 "trick_number": current_trick
             }
+
+            if hand.current_trick >= 5:
+                round_results = hand.evaluate_round_results()
+                trump_caller = Player.objects.get(name=hand.starting_player)
+                going_alone = getattr(game, 'going_alone', False)
+
+                update_game_results(game, round_results["team1_tricks"], round_results["team2_tricks"], trump_caller, going_alone)
+
+                completed_tricks = []
+                for i in range(1, 6):
+                    trick = PlayedCard.objects.filter(hand=hand, trick_number=i).order_by('order')
+                    if len(trick) == 4:
+                        completed_tricks.append({
+                            "trick_number": i,
+                            "players": [pc.player.name for pc in trick],
+                            "cards": [str(pc.card) for pc in trick],
+                            "winner": evaluate_trick_winner(game.trump_suit, trick).name
+                        })
+
+                return JsonResponse({
+                    "action": "round_completed",
+                    "trick": trick_data,
+                    "trick_complete": True,
+                    "round_results": {
+                        "team1_points": game.team1_points,
+                        "team2_points": game.team2_points,
+                        "winning_team": round_results["winning_team"]
+                    },
+                    "tricks": completed_tricks
+                })
+
             return JsonResponse({
                 "action": "trick_completed",
                 "trick": trick_data,
                 "trick_complete": True
             })
 
-    return JsonResponse({
-        "action": "bot_played",
-        "player": current_player.name,  # ✅ ADD THIS
-        "card": str(card_to_play),
-        "trick_complete": PlayedCard.objects.filter(hand=hand, trick_number=current_trick).count() == 4
-    })
+    if 'current_player' in locals() and 'card_to_play' in locals():
+        return JsonResponse({
+            "action": "bot_played",
+            "player": current_player.name,
+            "card": str(card_to_play),
+            "trick_complete": PlayedCard.objects.filter(hand=hand, trick_number=current_trick).count() == 4
+        })
 
     return JsonResponse({"error": "Invalid request method."}, status=405)
-
 
 
 # Reset trick
