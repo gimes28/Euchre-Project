@@ -494,6 +494,7 @@ def start_round(request):
             game = Game.objects.latest('id')
             trump_caller_name = request.POST.get("trump_caller")
             going_alone = request.POST.get("going_alone") == "true"
+            up_card = request.POST.get("up_card")
 
             try:
                 trump_caller = Player.objects.get(name=trump_caller_name)
@@ -552,13 +553,20 @@ def start_round(request):
                 "is_dealer": game.dealer.is_human,
                 "partner_is_dealer": game.dealer.partner == "Player",
                 "trump_suit": game.trump_suit,
-                "is_loner": False,
+                "trump_maker": trump_caller.name,
                 "hand": [str(card) for card in player_hands[human_player]],
+                "current_trick": [], # TODO: update when we have current trick
+                "suit_lead": "unknown", # TODO: update when we have suit led
+                "up_card": up_card,
                 "known_cards": [], # TODO: update when we have known cards
                 "win_probability": -1
             }
 
-            predicted_probs = Random_Forest_Model.get_probabilities(game_state)
+            try:
+                predicted_probs = Random_Forest_Model.get_probabilities(game_state)
+            except Exception as e:
+                print(f"Error in get_probabilities: {str(e)}")
+                return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)
 
             probabilities = []
             for card, probability in predicted_probs:

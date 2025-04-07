@@ -4,7 +4,8 @@ $(document).ready(function () {
     let currentSuit = "";
     let trumpSelected = false;
     let gameResponse = null;
-    let kitty = [] // Store the global response object here
+    let kitty = [] 
+    let upCard = null; // Store the global response object here
 
     // Reset Current Trump and Game Score on Page Load
     $("#current-trump").text("None");
@@ -111,6 +112,8 @@ $(document).ready(function () {
         $("#modal-trump .modal-content").html(`
             <img src="${getCardImage(card)}" class="playing-card" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%);" alt="Up Card">
         `);
+
+        upCard = card;
 
         $("#reject-trump-button").prop("disabled", false);
     
@@ -314,6 +317,7 @@ $(document).ready(function () {
     }
 
     function determineBotTrumpDecision(player, upCard, trumpRound, playerOrder) {
+        upCard = upCard;
         $.ajax({
             url: "/determine-trump/",
             type: "POST",
@@ -678,7 +682,7 @@ $(document).ready(function () {
         $.ajax({
             url: "/start-round/",
             type: "POST",
-            data: { trump_caller: trumpCaller, going_alone: goingAlone },
+            data: { trump_caller: trumpCaller, going_alone: goingAlone, up_card: upCard },
             success: function (response) {
                 console.log("✅ Round Results Received:", response);
 
@@ -686,7 +690,7 @@ $(document).ready(function () {
                     alert("❌ Error: " + response.error);
                     return;
                 }
-                
+
                 // Update the display of player's cards with probabilities
                 const cardContainer = $(positions["Player"]);
                 cardContainer.empty();
