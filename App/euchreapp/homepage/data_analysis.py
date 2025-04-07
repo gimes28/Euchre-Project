@@ -16,6 +16,12 @@ DATA_DIR = os.path.join(BASE_DIR, "data_storage")
 FILENAME = os.path.join(DATA_DIR, "game_data.csv")
 FILENAME_TEMP = os.path.join(DATA_DIR, "temp_game_data.csv")
 
+
+rf_card = joblib.load(os.path.join(DATA_DIR, "rf_card_model.pkl"))
+rf_prob = joblib.load(os.path.join(DATA_DIR, "rf_prob_model.pkl"))
+card_encoder = joblib.load(os.path.join(DATA_DIR, "card_encoder.pkl"))
+label_encoders = joblib.load(os.path.join(DATA_DIR, "label_encoders.pkl"))
+
 RANDOM_STATE = 123
 
 class Data_Encoding():
@@ -177,7 +183,7 @@ class Data_Encoding():
         # Create expanded columns
         hand_df = pd.DataFrame(df['hand_encoded'].tolist(), columns=[f'hand_card_{i}' for i in range(max_hand_length)])
         known_df = pd.DataFrame(df['known_cards_encoded'].tolist(), columns=[f'known_card_{i}' for i in range(max_known_cards_length)])
-        trick_df = pd.DataFrame(df['current_trick_encoded'].tolist(), columns=[f'current_trick{i}' for i in range(max_known_cards_length)])
+        trick_df = pd.DataFrame(df['current_trick_encoded'].tolist(), columns=[f'current_trick{i}' for i in range(max_current_trick)])
 
         df = pd.concat([df, hand_df, known_df, trick_df], axis=1)
 
@@ -216,7 +222,7 @@ class Random_Forest_Model():
 
         return results
     
-    def predict_hand_win_probabilities_game_state(self, game_state, rf_model, card_encoder, rf_prob, label_encoders, Data):
+    def predict_hand_win_probabilities_game_state(self, game_state, rf_model, card_encoder, rf_prob, label_encoders, data_encoder):
         """
         Predict win probabilities for each card in the player's hand using a game_state dictionary.
         """
@@ -275,10 +281,32 @@ class Random_Forest_Model():
         print(f"Win Probability R² Score: {prob_r2:.4f}")
             
         # Save the trained models
-        #joblib.dump(rf_card, os.path.join(DATA_DIR, "rf_card_model.pkl"))
-        #joblib.dump(rf_prob, os.path.join(DATA_DIR, "rf_prob_model.pkl"))
-        #joblib.dump(card_encoder, os.path.join(DATA_DIR, "card_encoder.pkl"))
-        #joblib.dump(label_encoders, os.path.join(DATA_DIR, "label_encoders.pkl"))
+        joblib.dump(rf_card, os.path.join(DATA_DIR, "rf_card_model.pkl"))
+        joblib.dump(rf_prob, os.path.join(DATA_DIR, "rf_prob_model.pkl"))
+        joblib.dump(card_encoder, os.path.join(DATA_DIR, "card_encoder.pkl"))
+        joblib.dump(label_encoders, os.path.join(DATA_DIR, "label_encoders.pkl"))
+
+    @staticmethod
+    def get_probabilities(game_state):
+        data_encoder = Data_Encoding()
+        model = Random_Forest_Model()
+
+        print("Debug - Game State before encoding: ")
+        for key, value in game_state.items():
+            print(f"{key}: {value}")
+
+        try:
+            # Predict win probabilities for each card in hand
+            predicted_probs = model.predict_hand_win_probabilities_game_state(
+                game_state, rf_card, card_encoder, rf_prob, label_encoders, data_encoder
+            )
+        except Exception as e:
+            print(f"Error in get_probabilities: {str(e)}")
+            import traceback
+            print(f"Stack trace: {traceback.format_exc()}")
+            raise
+
+        return predicted_probs
 
         return rf_card, rf_prob
 

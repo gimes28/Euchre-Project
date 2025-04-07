@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from random import shuffle
 from .models import start_euchre_round, Game, Player, Card, deal_hand as model_deal_hand, PlayedCard, reset_round_state, Hand, GameResult, rotate_dealer
 import json
+from .data_analysis import Random_Forest_Model
 
 # Render the homepage
 def home(request):
@@ -493,6 +494,7 @@ def start_round(request):
             game = Game.objects.latest('id')
             trump_caller_name = request.POST.get("trump_caller")
             going_alone = request.POST.get("going_alone") == "true"
+            up_card = request.POST.get("up_card")
 
             try:
                 trump_caller = Player.objects.get(name=trump_caller_name)
@@ -533,9 +535,62 @@ def start_round(request):
                     return JsonResponse({"error": f"{player.name} has {len(player_cards)} cards instead of 5!"}, status=500)
 
             # Step 5: Play the entire round (all 5 tricks)
-            round_result = start_euchre_round(game, trump_caller, going_alone)  # Plays **all 5 tricks**
+            # round_result = start_euchre_round(game, trump_caller, going_alone)  # Plays **all 5 tricks**
+
             
-            return round_result  # Returns JSON with full round data
+            # TEMP: send game state to get probabilities for each card
+            round_id = request.POST.get("round_id")
+            human_player = Player.objects.get(is_human=True)
+
+            game_state = {
+                "game_id": game.id,
+                "round_id": round_id,
+                "team1_score": game.team1_points,
+                "team2_score": game.team2_points,
+                "team1_round_score": 0, # TODO: update when we have the tricks
+                "team2_round_score": 0, # TODO: update when we have the tricks
+                "seat_position": 0, # TODO: update when we have seat position
+                "is_dealer": game.dealer.is_human,
+                "partner_is_dealer": game.dealer.partner == "Player",
+                "trump_suit": game.trump_suit,
+                "trump_maker": trump_caller.name,
+                "hand": [str(card) for card in player_hands[human_player]],
+                "current_trick": [], # TODO: update when we have current trick
+                "suit_lead": "unknown", # TODO: update when we have suit led
+                "up_card": up_card,
+                "known_cards": [], # TODO: update when we have known cards
+                "win_probability": -1
+            }
+
+            try:
+                predicted_probs = Random_Forest_Model.get_probabilities(game_state)
+            except Exception as e:
+                print(f"Error in get_probabilities: {str(e)}")
+                return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)
+
+            probabilities = []
+            for card, probability in predicted_probs:
+                print(f"Card: {card} — Win Probability: {probability:.3f}")
+                probabilities.append({
+                    "card": str(card),
+                    "probability": float(probability)
+                })
+
+            # Dummy data for testing UI
+            # import random
+            # probabilities = []
+            # for card in player_hands[human_player]:
+            #     probabilities.append({
+            #         "card": str(card),
+            #         "probability": random.uniform(0.1, 0.9)
+            #     })
+
+            return JsonResponse({
+                "probabilities": probabilities,
+                "best_card": max(probabilities, key=lambda x: x["probability"])["card"]
+            })
+            
+            # return round_result  # Returns JSON with full round data
 
         except Exception as e:
             print(f"Error in start_round: {str(e)}")

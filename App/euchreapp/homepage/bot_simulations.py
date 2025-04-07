@@ -120,10 +120,10 @@ class MonteCarloSimulation():
 
     def initialize_bots(self):
         bots = [
-            Bot(name="Player", partner="Bot 3", team=1),
-            Bot(name="Bot 2", partner="Bot 4", team=2),
-            Bot(name="Bot 3", partner="Player", team=1),
-            Bot(name="Bot 4", partner="Bot 2", team=2)
+            Bot(name="Player", partner="Team Mate", team=1),
+            Bot(name="Opponent1", partner="Opponent2", team=2),
+            Bot(name="Team Mate", partner="Player", team=1),
+            Bot(name="Opponent2", partner="Opponent1", team=2)
         ]
         # Initialize tracking
         # for bot in bots:
@@ -365,7 +365,7 @@ class MonteCarloSimulation():
         for trick_number in range(1, 6):
             # played cards for each trick
             played_cards = []
-            suit_lead = ""
+            suit_lead = "unknown"
             # Each player plays a card
             for bot in play_order:
                 card_to_play = bot.determine_best_card(
@@ -378,10 +378,6 @@ class MonteCarloSimulation():
                     tricks_won=team_tricks[bot.team - 1]
                 )
                 
-                # Find suit lead at beginning of trick
-                if bot.name == play_order[0].name:
-                    suit_lead = card_to_play.suit
-                
                 if(bot.name == "Player"):
                     # Perform montecarlo simulation for exploring each card in hard
                     card_probs = self.monte_carlo_card_evaluator( original_state={ "dealt_hands": dealt_hands, 
@@ -390,16 +386,21 @@ class MonteCarloSimulation():
                                                                   trump_suit=trump_suit, trump_maker=trump_maker,
                                                                   going_alone=going_alone, team_tricks=team_tricks,
                                                                   num_simulations=25)
-                    # Find suit lead at beginning of trick if player is first
-                    if "Player" == play_order[0].name:
-                        suit_lead = card_to_play.suit
 
                     self.update_game_state(game_num, trick_number, team1_points, team2_points,
                         team_tricks, dealer, play_order, players, trump_maker, trump_suit, dealt_hands, 
                         card_to_play, up_card, played_cards, previous_tricks, suit_lead, card_probs)
+                   
+                    # Find suit lead at beginning of trick if player is first
+                    if "Player" == play_order[0].name:
+                        suit_lead = card_to_play.suit
                     
                     player_card_played = card_to_play
                     player_team = bot.team
+                
+                # Find suit lead at beginning of trick
+                if bot.name == play_order[0].name:
+                    suit_lead = card_to_play.suit
 
                 dealt_hands[bot.name].remove(card_to_play)
 
@@ -527,9 +528,9 @@ class MonteCarloSimulation():
         # Find all cards played
         previous_cards = [card for trick in previous_tricks.values() for card in trick]
         known_cards = []
-        known_cards.extend([str(card.get_card()) for card in previous_cards])
+        known_cards.extend([str(card) for card in previous_cards])
         player_hand = [str(c) for c in player_hand]
-        current_trick = [str(c.get_card()) for c in played_cards]
+        current_trick = [str(c) for c in played_cards]
 
         # Generate one row per card in the hand
         for card in player_hand:
