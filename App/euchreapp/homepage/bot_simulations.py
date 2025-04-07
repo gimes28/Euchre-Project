@@ -514,8 +514,12 @@ class MonteCarloSimulation():
           else:
               index += 1
 
-      known_cards = [str(up_card)]
-      known_cards.extend([str(card) for card in previous_cards])
+    #   known_cards = [str(up_card)]
+      known_cards = []
+      # Extract played cards from previous tricks dictionary
+      for _, played_cards in previous_cards.items():
+        for played_card in played_cards:
+            known_cards.append(str(played_card.card))
 
       win_data = self.player_card_stats.get(str(best_card), {"wins": 0, "total": 0})
       win_prob = win_data["wins"] / win_data["total"] if win_data["total"] > 0 else 0
@@ -672,4 +676,4 @@ class MonteCarloSimulation():
 # TEMPORARY DATA GENERATION 
 if __name__ == "__main__":
    simulation = MonteCarloSimulation()
-   simulation.run_simulation(2000)
+   simulation.run_simulation(10)

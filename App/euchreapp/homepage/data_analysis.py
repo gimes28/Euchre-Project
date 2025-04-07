@@ -15,6 +15,12 @@ DATA_DIR = os.path.join(BASE_DIR, "data_storage")
 FILENAME = os.path.join(DATA_DIR, "game_data.csv")
 FILENAME_TEMP = os.path.join(DATA_DIR, "temp_game_data.csv")
 
+
+rf_card = joblib.load(os.path.join(DATA_DIR, "rf_card_model.pkl"))
+rf_prob = joblib.load(os.path.join(DATA_DIR, "rf_prob_model.pkl"))
+card_encoder = joblib.load(os.path.join(DATA_DIR, "card_encoder.pkl"))
+label_encoders = joblib.load(os.path.join(DATA_DIR, "label_encoders.pkl"))
+
 RANDOM_STATE = 123
 
 class Data_Encoding():
@@ -111,7 +117,7 @@ class Data_Encoding():
 
         return X, y_card, y_prob, card_encoder, label_encoders
     
-    def Encode_Game_State(self, game_state, card_enconder, label_encoders):
+    def Encode_Game_State(self, game_state, card_encoder, label_encoders):
         # Convert game_state dict to DataFrame
         df = pd.DataFrame([game_state])
 
@@ -185,7 +191,7 @@ class Random_Forest_Model():
 
         return results
     
-    def predict_hand_win_probabilities_game_state(self, game_state, rf_model, card_encoder, rf_prob, label_encoders, Data):
+    def predict_hand_win_probabilities_game_state(self, game_state, rf_model, card_encoder, rf_prob, label_encoders, data_encoder):
         """
         Predict win probabilities for each card in the player's hand using a game_state dictionary.
         """
@@ -248,6 +254,19 @@ class Random_Forest_Model():
         joblib.dump(rf_prob, os.path.join(DATA_DIR, "rf_prob_model.pkl"))
         joblib.dump(card_encoder, os.path.join(DATA_DIR, "card_encoder.pkl"))
         joblib.dump(label_encoders, os.path.join(DATA_DIR, "label_encoders.pkl"))
+
+    @staticmethod
+    def get_probabilities(game_state):
+
+        data_encoder = Data_Encoding()
+        model = Random_Forest_Model()
+
+        # Predict win probabilities for each card in hand
+        predicted_probs = model.predict_hand_win_probabilities_game_state(
+            game_state, rf_card, card_encoder, rf_prob, label_encoders, data_encoder
+        )
+
+        return predicted_probs
 
 if __name__ == "__main__":
     # Initialize Data_Encoding and Random_Forest_Model instances
