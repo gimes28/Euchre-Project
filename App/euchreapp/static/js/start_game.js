@@ -137,11 +137,13 @@ $(document).ready(function () {
                         const isbestCard = prob.card === response.best_card;
                         const cardHtml = `
                             <div class="card-container">
-                                <div class="probability-overlay">${(prob.probability * 100).toFixed(1)}%</div>
                                 <img src="${getCardImage(prob.card)}" 
                                      class="playing-card ${isbestCard ? 'best-card' : ''}" 
                                      data-card="${prob.card}" 
-                                     data-player="Player">
+                                     data-player="Player"
+                                     draggable="true"
+                                     ondragstart="event.dataTransfer.setData('card', '${prob.card}')">
+                                <div class="probability-overlay">${(prob.probability * 100).toFixed(1)}%</div>
                             </div>
                         `;
                         cardContainer.append(cardHtml);
@@ -155,7 +157,7 @@ $(document).ready(function () {
                     removeCardFromPlayerHand(formatCardForDOM(response.card), response.player);
                     console.log("Looking for card:", formatCardForDOM(response.card), "for", response.player);
                     // Continue trick loop after small delay
-                    setTimeout(playTrickLoop, 700);
+                    setTimeout(playTrickLoop, 1400);
                 } else if (response.action === "round_completed") {
                     updatePreviousTrick(response.trick);
                     finalizeRound(response);  // <- Show results modal
@@ -163,7 +165,7 @@ $(document).ready(function () {
                 } else if (response.action === "trick_completed") {
                     console.log("🏁 Trick completed:", response.trick);
                     updatePreviousTrick(response.trick);
-                    setTimeout(playTrickLoop, 500); // Start next trick
+                    setTimeout(playTrickLoop, 1000); // Start next trick
                 } else {
                     console.warn("⚠️ Unexpected action:", response);
                 }

@@ -951,12 +951,14 @@ def play_trick_step(request):
         current_player = remaining_players[0]
 
         if current_player.is_human:
-            played_cards = PlayedCard.objects.filter(hand=hand, player=current_player)
-            all_cards = Card.objects.filter(owner=current_player)
+            # played_cards = PlayedCard.objects.filter(hand=hand, player=current_player)
+            # all_cards = Card.objects.filter(owner=current_player)
 
-            # Remove cards already played
-            played_card_ids = [pc.card.id for pc in played_cards]
-            current_hand_cards = all_cards.exclude(id__in=played_card_ids)
+            # # Remove cards already played
+            # played_card_ids = [pc.card.id for pc in played_cards]
+            # current_hand_cards = all_cards.exclude(id__in=played_card_ids)
+
+            current_hand_cards = Card.objects.filter(owner=current_player)
 
             # Get seat position
             seat_position = trick_players.index(current_player)
@@ -1088,7 +1090,7 @@ def get_player_card_probabilities(game, hand, seat_position, player_hand, human_
         "hand": [str(card) for card in player_hand],
         "current_trick": [str(card) for card in trick_cards],
         "suit_lead": suit_lead,
-        "up_card": up_card if up_card else "unknown",
+        "up_card": up_card if up_card else "9 of hearts",
         "known_cards": [str(card) for trick in previous_tricks.values() for card in trick],
         "win_probability": -1
     }

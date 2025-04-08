@@ -288,6 +288,10 @@ def deal_hand(deck, players, game):
                     hand=hand,
                     order=i + 1
                 )
+        
+        for card in deck:
+            card.owner = None
+            card.save()
 
         print(f"🔥 DEBUG: Hands dealt: {hands}")
         print(f"🔥 DEBUG: Kitty after dealing: {deck}")
