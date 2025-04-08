@@ -17,26 +17,32 @@ FILENAME = os.path.join(DATA_DIR, "game_data.csv")
 FILENAME_TEMP = os.path.join(DATA_DIR, "temp_game_data.csv")
 
 
-rf_card = joblib.load(os.path.join(DATA_DIR, "rf_card_model.pkl"))
-rf_prob = joblib.load(os.path.join(DATA_DIR, "rf_prob_model.pkl"))
-card_encoder = joblib.load(os.path.join(DATA_DIR, "card_encoder.pkl"))
-label_encoders = joblib.load(os.path.join(DATA_DIR, "label_encoders.pkl"))
+#rf_card = joblib.load(os.path.join(DATA_DIR, "rf_card_model.pkl"))
+#rf_prob = joblib.load(os.path.join(DATA_DIR, "rf_prob_model.pkl"))
+#card_encoder = joblib.load(os.path.join(DATA_DIR, "card_encoder.pkl"))
+#label_encoders = joblib.load(os.path.join(DATA_DIR, "label_encoders.pkl"))
 
 RANDOM_STATE = 123
 
 class Data_Encoding():
     # Function to encode a list of cards
     def encode_cards(self, card_list, encoder, max_length):
-        # Initialize with -1 for padding
         encoded = np.full(max_length, -1)
         if isinstance(card_list, list):
             for i, card in enumerate(card_list):
                 if i >= max_length:
                     break
-                encoded[i] = encoder.transform([card])[0]
+                if not card or card == "":
+                    continue  # ✅ Skip empty strings
+                try:
+                    encoded[i] = encoder.transform([card])[0]
+                except ValueError:
+                    encoded[i] = encoder.transform(['Unknown'])[0]
         else:
-            # Encode single card
-            encoded[0] = encoder.transform([card_list])[0]  
+            try:
+                encoded[0] = encoder.transform([card_list])[0]
+            except ValueError:
+                encoded[0] = encoder.transform(['Unknown'])[0]
         return encoded
 
 
@@ -183,7 +189,7 @@ class Data_Encoding():
         # Create expanded columns
         hand_df = pd.DataFrame(df['hand_encoded'].tolist(), columns=[f'hand_card_{i}' for i in range(max_hand_length)])
         known_df = pd.DataFrame(df['known_cards_encoded'].tolist(), columns=[f'known_card_{i}' for i in range(max_known_cards_length)])
-        trick_df = pd.DataFrame(df['current_trick_encoded'].tolist(), columns=[f'current_trick{i}' for i in range(max_current_trick)])
+        trick_df = pd.DataFrame(df['current_trick_encoded'].tolist(), columns=[f'current_trick_{i}' for i in range(max_current_trick)])
 
         df = pd.concat([df, hand_df, known_df, trick_df], axis=1)
 
@@ -263,14 +269,14 @@ class Random_Forest_Model():
         # Train the Random Forest classifier for best card prediction
         print("--Training Best Card Prediction")
         start_time = time.time()
-        rf_card = RandomForestClassifier(n_estimators=200, random_state=RANDOM_STATE)
+        rf_card = RandomForestClassifier(n_estimators=100, random_state=RANDOM_STATE)
         rf_card.fit(X_train, y_card_train)
         print(f'Total Time elapsed: {(time.time() - start_time)/60:.2f} min')
         
         # Train the Random Forest regressor for win probability prediction
         print("--Training Win Probability Prediction")
         start_time = time.time()
-        rf_prob = RandomForestRegressor(n_estimators=200, random_state=RANDOM_STATE)
+        rf_prob = RandomForestRegressor(n_estimators=100, random_state=RANDOM_STATE)
         rf_prob.fit(X_train, y_prob_train)
         print(f'Total Time elapsed: {(time.time() - start_time)/60:.2f} min')
 
@@ -282,10 +288,10 @@ class Random_Forest_Model():
         print(f"Win Probability R² Score: {prob_r2:.4f}")
             
         # Save the trained models
-        #joblib.dump(rf_card, os.path.join(DATA_DIR, "rf_card_model.pkl"))
-        #joblib.dump(rf_prob, os.path.join(DATA_DIR, "rf_prob_model.pkl"))
-        #joblib.dump(card_encoder, os.path.join(DATA_DIR, "card_encoder.pkl"))
-        #joblib.dump(label_encoders, os.path.join(DATA_DIR, "label_encoders.pkl"))
+        joblib.dump(rf_card, os.path.join(DATA_DIR, "rf_card_model.pkl"))
+        joblib.dump(rf_prob, os.path.join(DATA_DIR, "rf_prob_model.pkl"))
+        joblib.dump(card_encoder, os.path.join(DATA_DIR, "card_encoder.pkl"))
+        joblib.dump(label_encoders, os.path.join(DATA_DIR, "label_encoders.pkl"))
 
         return rf_card, rf_prob
 
@@ -344,59 +350,87 @@ if __name__ == "__main__":
         label_encoders = joblib.load(os.path.join(DATA_DIR, "label_encoders.pkl"))
 
         # # Load model and data
-        # X = pd.read_csv(FILENAME_TEMP)
+        df = pd.read_csv(FILENAME_TEMP)
         # explainer = shap.TreeExplainer(rf_prob)
 
-        # X_sample = X.sample(100)
-        # shap_values = explainer.shap_values(X)
+        df_sample = df.sample(100)
 
-        # # Frequency counts
-        # hand3_counts = X['hand_card_3'].value_counts()
-        # known4_counts = X['known_card_4'].value_counts()
-
-        # # Decode to human-readable card names
-        # hand3_cards = card_encoder.inverse_transform(hand3_counts.index)
-        # known4_cards = card_encoder.inverse_transform(known4_counts.index)
-
-        # # Create DataFrames
-        # hand3_df = pd.DataFrame({'Card': hand3_cards, 'Frequency': hand3_counts.values})
-        # known4_df = pd.DataFrame({'Card': known4_cards, 'Frequency': known4_counts.values})
-
-        # # Sort and display
-        # print("Top cards in hand_card_3:")
-        # print(hand3_df.head())
-
-        # print("\nTop cards in known_card_4:")
-        # print(known4_df.head())
-
-        # # Create dependency plots
-        # for feature in ["trump_maker", "hand_card_3", "known_card_4", "is_trump_card"]:
-        #     shap.dependence_plot(feature, shap_values, X, show=True)
-
-        # Define the game state for model testing
+        #Define the game state for model testing
         game_state = {
             "game_id": 0,
             "round_id": 1,
             "team1_score": 0,
             "team2_score": 0,
-            "team1_round_score": 0,
+            "team1_round_score": 1,
             "team2_round_score": 0,
-            "seat_position": 0,
-            "is_dealer": False,
+            "seat_position": 3,
+            "is_dealer": True,
             "partner_is_dealer": False,
-            "trump_suit": "clubs",
-            "is_loner": False,
-            "hand": ['A of clubs', 'K of hearts', 'K of diamonds', '9 of spades', 'Q of diamonds'],
-            "known_cards": ['J of clubs'],
+            "trump_suit": "hearts",
+            "trump_maker": "Opponent2",
+            "hand": ['A of clubs', 'K of hearts', 'A of hearts', 'Q of spades'],
+            "current_trick": [],
+            "suit_lead": "diamonds",
+            "up_card": "10 of clubs",
+            "known_cards": ['K of diamonds', 'A of diamonds', '10 of spades', '9 of spades'],
             # 'card_to_evaluate' and 'card_to_play' will be set in the function
             "win_probability": -1
         }
 
-        # Predict win probabilities for each card in hand
-        predicted_probs = model.predict_hand_win_probabilities_game_state(
-            game_state, rf_card, card_encoder, rf_prob, label_encoders, data_encoder
-        )
+        # "game_id": game_num,
+        #         "round_id": trick_number,
+        #         "team1_score": team1_points,
+        #         "team2_score": team2_points,
+        #         "team1_round_score": team_tricks[0],
+        #         "team2_round_score": team_tricks[1],
+        #         "seat_position": index,
+        #         "is_dealer": dealer.name == "Player",
+        #         "partner_is_dealer": dealer.team == player.team and dealer.name != "Player",
+        #         "trump_suit": trump_suit,
+        #         "trump_maker": trump_maker.name,
+        #         "hand": player_hand,
+        #         "current_trick": current_trick,
+        #         "suit_lead": suit_lead,
+        #         "up_card": str(up_card),
+        #         "known_cards": known_cards,
+        #         "card_to_evaluate": str(card),
+        #         "card_to_play": 1 if card == str(best_card) else 0,
+        #         "win_probability": card_probs[str(card)]
 
-        #Display the results
-        for card, prob in predicted_probs:
-            print(f"Card: {card} — Win Probability: {prob:.2f}")
+        # Predict win probabilities for each card in hand
+        # predicted_probs = model.predict_hand_win_probabilities_game_state(
+        #     game_state, rf_card, card_encoder, rf_prob, label_encoders, data_encoder
+        # )
+
+        # #Display the results
+        # for card, prob in predicted_probs:
+        #     print(f"Card: {card} — Win Probability: {prob:.2f}")
+        # known3_counts= df_sample["known_card_3"].value_counts()
+        # hand3_counts = df_sample["hand_card_3"].value_counts()
+        # valid_hand3 = hand3_counts[hand3_counts.index != -1]
+        # valid_known3 = known3_counts[known3_counts.index != -1]
+
+        # # Decode only the valid ones
+        # hand3_cards = card_encoder.inverse_transform(valid_hand3.index)
+        # known3_cards = card_encoder.inverse_transform(valid_known3.index)
+
+        # # Create DataFrames
+        # hand3_df = pd.DataFrame({'Card': hand3_cards, 'Frequency': valid_hand3.values})
+        # known3_df = pd.DataFrame({'Card': known3_cards, 'Frequency': valid_known3.values})
+
+        # # Sort and display
+        # print("Top cards in hand_card_3:")
+        # print(hand3_df.head(10))
+
+        # print("\nTop cards in known_card_4:")
+        # print(known3_df.head(10))
+
+        # explainer = shap.TreeExplainer(rf_prob)
+        # shap_values = explainer.shap_values(df_sample)
+
+        # shap_prob_values = explainer.shap_values(shap_values)
+
+        # shap.summary_plot(shap_prob_values, df_sample)
+
+        # for feature in ["trump_maker", "hand_card_3", "known_card_3", "is_trump_card"]:
+        #      shap.dependence_plot(feature, shap_values, df_sample, show=True)

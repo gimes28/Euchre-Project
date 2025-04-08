@@ -528,9 +528,9 @@ class MonteCarloSimulation():
         # Find all cards played
         previous_cards = [card for trick in previous_tricks.values() for card in trick]
         known_cards = []
-        known_cards.extend([str(card) for card in previous_cards])
+        known_cards.extend([str(card.card) for card in previous_cards])
         player_hand = [str(c) for c in player_hand]
-        current_trick = [str(c) for c in played_cards]
+        current_trick = [str(c.card) for c in played_cards]
 
         # Generate one row per card in the hand
         for card in player_hand:
