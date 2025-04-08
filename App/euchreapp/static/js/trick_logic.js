@@ -44,7 +44,6 @@ function playCardAsHuman(cardStr) {
 }
 
 
-
 function showTrickResults(data) {
     const trickHtml = data.cards_played.map(pc =>
         `<li>${pc.player} played ${pc.card}</li>`).join("");

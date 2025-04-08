@@ -97,18 +97,14 @@
                         </div>
 
                         <!-- Custom Modal to show Round Results -->
-                        <div id="modal-round" class="custom-modal">
-                            <div class="modal-header">Current Round</div>
-                            <div class="modal-content">
-                                <!-- Dynamic content will be injected here -->
-                            </div>
+                        <div id="round-results-modal" class="custom-modal">
+                            <div class="modal-content" id="round-results-content"></div>
                             <div class="modal-actions">
-                                <button class="ui primary button" id="modal-round-button" style="display: none;">Start Round</button>
-                                <button class="ui primary button" id="ok-round-button" style="display: none;">OK</button>
-                                <button class="ui red button" id="end-game-button" style="display: none;">End Game</button>
+                                <button id="modal-round-button" class="ui button">Start Next Round</button>
+                                <button id="end-game-button" class="ui red button" style="display: none;">End Game</button>
                             </div>
-                                                      
                         </div>
+                        
 
                         <!-- Trump Card Modal -->
                         <div id="modal-trump" class="custom-modal">

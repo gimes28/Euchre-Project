@@ -23,6 +23,14 @@ $(document).ready(function () {
     // Initialize Semantic UI checkbox
     $('.ui.toggle.checkbox').checkbox();
 
+    // if (results.winning_team) {
+    //     $("#ok-round-button").hide();
+    //     $("#end-game-button").show();  // Show End Game button
+    // } else {
+    //     $("#ok-round-button").show();
+    //     $("#end-game-button").hide();
+    // }    
+
     // Drop zone handling
     const dropZone = document.getElementById("drop-zone");
     const playBtn = document.getElementById("play-card-button");
@@ -56,11 +64,8 @@ $(document).ready(function () {
     };
 
     function formatCardForDOM(cardStr) {
-        // Converts "Q of spades" to "q_of_spades"
-        if (!cardStr.includes(" of ")) return cardStr;
-        const [rank, suit] = cardStr.toLowerCase().split(" of ");
-        return `${rank}_of_${suit}`;
-    }
+        return cardStr.toLowerCase().replace(/ /g, "_");
+    }    
 
     function formatCardString(cardStr) {
         if (cardStr.includes("_of_")) {
@@ -74,12 +79,30 @@ $(document).ready(function () {
             return cardStr;
         }
     }
+
+
+    function capitalize(str) {
+        if (!str || typeof str !== "string") return str;
+        return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    }    
     
-    function removeCardFromPlayerHand(cardStr, playerName = "Player") {
-        const formatted = cardStr.toLowerCase().replace(" of ", "_of_"); // Ensures consistent format
-        console.log(`🧹 Removing card element: ${formatted} for ${playerName}`);
-        const container = $(positions[playerName]);
-        container.find(`[data-card="${formatted}"]`).remove();
+
+    function removeCardFromPlayerHand(cardId, player) {
+        console.log(`🧹 Attempting to remove ${cardId} from ${player}-card`);
+    
+        let containerId = "";
+        if (player === "Player") containerId = "#human-card";
+        else if (player === "Team Mate") containerId = "#bot2-card";
+        else if (player === "Opponent1") containerId = "#bot1-card";
+        else if (player === "Opponent2") containerId = "#bot3-card";
+    
+        const cardImg = $(`${containerId} img[data-card="${cardId}"]`);
+        if (cardImg.length) {
+            cardImg.remove();
+            console.log(`✅ Removed ${cardId} from ${containerId}`);
+        } else {
+            console.warn(`⚠️ ${cardId} not found in ${containerId}`);
+        }
     }
     
 
@@ -106,44 +129,67 @@ $(document).ready(function () {
         document.getElementById("trick-opponent2").innerHTML = "";
     }
 
-    function updateModalPlayedSoFar(trickData) {
-        const cardsHTML = trickData.map(item => `
-            <div><strong>${item.player}:</strong> ${item.card}</div>
-        `).join("");
-        $("#modal-played-so-far").html(cardsHTML);
-    }
-
 
     function playTrickLoop() {
         console.log("🎯 Trick loop triggered. Action:", gameState.lastAction);
         console.log("👀 Current gameState:", gameState);
+    
+        // Prevent trick loop from triggering if a card is being selected
+        if (gameState.awaitingCard) {
+            console.warn("⏸️ Trick loop paused - awaiting human card.");
+            return;
+        }
     
         $.ajax({
             url: "/play-trick-step/",
             type: "GET",
             success: function(response) {
                 console.log("🧠 Trick step response:", response);
-    
+            
+                // ✅ Only remove human card if this step was from the human
+                if (response.player === "Player") {
+                    const formatted = response.card.toLowerCase().replace(/ /g, "_");
+                    const humanCard = document.querySelector(`#human-card img[data-card="${formatted}"]`);
+                    if (humanCard) {
+                        humanCard.remove();
+                        console.log(`✅ Removed player card ${formatted} from UI`);
+                    } else {
+                        console.warn(`⚠️ Could not find player card ${formatted} to remove`);
+                    }
+                }
+            
+                // 🎯 Follow-up: handle response actions
                 if (response.action === "awaiting_player") {
                     console.log("🃏 Awaiting human card selection...");
-                    showTrickModal(response); // ✅ This is the only place played_so_far is guaranteed
-                } else if (response.action === "bot_played") {
-                    console.log("📤 Bot card played by:", response.player);  // data.player not just player
-                    // Update UI to show bot card played
+                    gameState.awaitingCard = true;
+                    showTrickModal(response);
+                } 
+                else if (response.action === "bot_played") {
+                    console.log("📤 Bot card played by:", response.player);
                     updateBotCardUI(response.player, response.card);
-                    removeCardFromPlayerHand(formatCardForDOM(response.card), response.player);
                     console.log("Looking for card:", formatCardForDOM(response.card), "for", response.player);
-                    // Continue trick loop after small delay
                     setTimeout(playTrickLoop, 700);
-                } else if (response.action === "round_completed") {
-                    updatePreviousTrick(response.trick);
-                    finalizeRound(response);  // <- Show results modal
-                    return;
-                } else if (response.action === "trick_completed") {
+                } 
+                else if (response.action === "trick_completed") {
                     console.log("🏁 Trick completed:", response.trick);
                     updatePreviousTrick(response.trick);
-                    setTimeout(playTrickLoop, 500); // Start next trick
-                } else {
+                    response.trick.players.forEach((name, index) => {
+                    const card = response.trick.cards[index];
+                    updateBotCardUI(name, card);
+                });
+            
+                    setTimeout(() => {
+                        resetCenter();
+                        playTrickLoop();
+                    }, 1000);
+                } 
+                else if (response.action === "round_completed") {
+                    updatePreviousTrick(response.trick);
+                    finalizeRound(response);
+                    gameState.awaitingCard = false;
+                    return;
+                } 
+                else {
                     console.warn("⚠️ Unexpected action:", response);
                 }
             },
@@ -167,12 +213,12 @@ $(document).ready(function () {
     }
 
     function updateBotCardUI(playerName, cardName) {
-        if (!playerName || typeof playerName !== "string") {
-            console.error("❌ Invalid playerName in updateBotCardUI:", playerName);
+        if (!playerName || typeof playerName !== "string" || !cardName || typeof cardName !== "string") {
+            console.error("❌ Invalid inputs to updateBotCardUI:", { playerName, cardName });
             return;
         }
     
-        const trickAreaId = `trick-${playerName.toLowerCase().replace(" ", "-")}`;
+        const trickAreaId = `trick-${playerName.toLowerCase().replace(/\s+/g, "-")}`;
         const trickArea = document.getElementById(trickAreaId);
     
         if (!trickArea) {
@@ -180,17 +226,42 @@ $(document).ready(function () {
             return;
         }
     
-        const [rank, suit] = cardName.split(" of ");
-        const formatted = `${rank}_of_${suit}`.toLowerCase();        
-        
+        const formatted = formatCardForDOM(cardName);  // now consistent!
         const cardImg = document.createElement("img");
         cardImg.src = `/static/images/cards/${formatted}.png`;
         cardImg.alt = cardName;
         cardImg.classList.add("played-card");
+        cardImg.setAttribute("data-player", playerName);
+        cardImg.setAttribute("data-card", formatted);
     
         trickArea.innerHTML = '';
         trickArea.appendChild(cardImg);
+    
+        // Remove card from bot hand
+        const handAreaId = getBotCardContainerId(playerName);
+        const handArea = document.getElementById(handAreaId);
+        if (handArea) {
+            const cardToRemove = handArea.querySelector(`img[data-card="${formatted}"]`);
+            if (cardToRemove) {
+                cardToRemove.remove();
+                console.log(`✅ Removed ${formatted} from ${handAreaId}`);
+            } else {
+                console.warn(`⚠️ ${formatted} not found in ${handAreaId}`);
+            }
+        }
+    
+        console.log(`🃏 ${playerName} played ${cardName} → rendered in ${trickAreaId}`);
     }
+    
+    
+    // Utility: maps player name to DOM ID
+    function getBotCardContainerId(playerName) {
+        const name = playerName.toLowerCase();
+        if (name.includes("opponent1")) return "bot1-card";
+        if (name.includes("team mate")) return "bot2-card";
+        if (name.includes("opponent2")) return "bot3-card";
+        return null;
+    }      
     
 
     // Final placement after everything else is loaded
@@ -345,7 +416,7 @@ $(document).ready(function () {
         const data = {
             trump_round: String(trumpRound),
             player: String(player),
-            going_alone: String(goingAlone)
+            going_alone: Boolean(goingAlone)
         };        
     
         if (trumpRound === 1 && card) {
@@ -377,12 +448,17 @@ $(document).ready(function () {
                 updateKittyDisplay();
     
                 if (response.updated_hand) {
-                    currentPlayerHand = response.updated_hand.map(card =>
+                    if (player === "Player") {
+                        $("#human-card").empty(); // 🧹 Clear old cards from UI
+                    }
+                
+                    window.currentPlayerHand = response.updated_hand.map(card =>
                         card.replace(" of ", "_of_").toLowerCase()
                     );
-                    updatePlayerHand("Player", response.updated_hand);
-                    setPlayerHand(response.updated_hand);
-                }
+                
+                    updatePlayerHand("Player", response.updated_hand); // 🖼️ Redraw hand
+                    setPlayerHand(response.updated_hand); // 💾 Store hand in memory
+                }                
             
                 updateTrumpDisplay(currentSuit);
                 updatePlayerNames(player, currentSuit);
@@ -439,29 +515,35 @@ $(document).ready(function () {
 
 
     function updatePlayerHand(player, cards) {
-        const cardContainer = $(positions["Player"]);
-        cardContainer.empty(); // Clear previous cards
+        const cardContainer = $(positions[player]);
+        cardContainer.empty(); // Clear old hand
     
         cards.forEach(card => {
             const isHuman = player === "Player";
-            const imgSrc = isHuman ? getCardImage(card) : getCardImage("Hidden");
+            const formatted = card.toLowerCase().replace(/ /g, "_");
+            const imgSrc = isHuman ? `/static/images/cards/${formatted}.png` : getCardImage("Hidden");
     
-            const $cardImg = $(`<img src="${imgSrc}" class="playing-card" data-card="${formatCardForDOM(card)}" data-player="${player}">`);
+            const $cardImg = $("<img>")
+                .attr("src", imgSrc)
+                .attr("alt", card)
+                .addClass("playing-card") // ✅ Ensure consistent styling
+                .attr("data-card", formatted)
+                .attr("data-player", player);
     
             if (isHuman) {
-                // Make it draggable
                 $cardImg.attr("draggable", true);
     
                 $cardImg.on("dragstart", function (e) {
-                    e.originalEvent.dataTransfer.setData("card", $(this).data("card"));
+                    e.originalEvent.dataTransfer.setData("card", formatted); // ✅ Match drop zone logic
                     e.originalEvent.dataTransfer.effectAllowed = "move";
+                    console.log("Dragging card:", formatted);
                 });
             }
     
             cardContainer.append($cardImg);
         });
-    }
-
+    }    
+    
 
     const cardElements = document.querySelectorAll('.card'); // Select all card elements
     cardElements.forEach(card => {
@@ -517,29 +599,76 @@ $(document).ready(function () {
         dropZone.innerHTML = ""; // Clear previous
     
         const card = e.dataTransfer.getData("card");
-        const cardFilename = getCardImageFilename(card);
+        if (!card || (!card.includes(" of ") && !card.includes("_of_"))) {
+            console.error("❌ Invalid card format dropped:", card);
+            return;
+        }
     
+        const cardFilename = getCardImageFilename(card);
         const img = document.createElement("img");
         img.src = `/static/images/cards/${cardFilename}`;
         img.classList.add("card", "card-in-modal");
     
-        // Set rank/suit attributes for later use
-        const [rank, suit] = card.split(" of ");
+        // Safely parse rank and suit
+        let rank, suit;
+    
+        if (card.includes("_of_")) {
+            [rank, suit] = card.split("_of_");
+        } else if (card.includes(" of ")) {
+            [rank, suit] = card.split(" of ");
+        } else {
+            console.error("❌ Could not split card into rank and suit:", card);
+            return;
+        }
+    
         img.setAttribute("data-rank", rank.trim());
         img.setAttribute("data-suit", suit.trim());
     
+        const formattedCard = `${rank.toUpperCase()} of ${capitalize(suit)}`;
         dropZone.appendChild(img);
     
         // Save the card being played
-        dropZone.setAttribute("data-played-card", card);
+        dropZone.setAttribute("data-played-card", formattedCard); // Use consistent format
         playBtn.disabled = false;
     });
+    
     
     
     if (dropZone.querySelector("img")) {
         console.log("Card already dropped.");
         return;
     }
+
+
+    $("#start-round-button").on("click", function () {
+        $.post("/start-next-round/", {}, function (res) {
+            console.log("🔄 Starting next round...", res);
+            startNextRound();  // <- this should make the AJAX POST to /start-round/
+            $("#round-results-modal").fadeOut();
+            resetTrickTable();
+            resetCenter();
+            $.post("/start-next-round/", function (res) {
+                console.log("🔄 Starting new round...");
+                $("#modal-round").hide();
+                setTimeout(() => {
+                    pollNextTrickStep();  // ✅ resume loop
+                }, 600);
+            });
+        });
+    // ❌ missing this ↓↓↓
+    });    
+
+
+    $("#modal-round-button").on("click", function () {
+        $.post("/start-round/", {}, function (data) {
+            console.log("▶️ New round started:", data);
+            $("#modal-round").fadeOut();
+            resetTrickTable();
+            resetCenter();
+            pollNextTrickStep();
+        });
+    });    
+    
 
     $("#play-card-button").off("click").on("click", function () {
         const selectedCard = $("#drop-zone").attr("data-played-card");
@@ -955,7 +1084,7 @@ $(document).ready(function () {
             data: { trump_caller: trumpCaller, going_alone: goingAlone },
             success: function (response) {
                 console.log("✅ Round Results Received:", response);
-                console.log("🔁 Human's hand ready:", currentPlayerHand);
+                console.log("🔁 Human's hand ready:", window.currentPlayerHand);
                 console.log("🃏 Awaiting human card click...");
     
                 if (response.error) {
@@ -964,7 +1093,7 @@ $(document).ready(function () {
                 }
     
                 if (response.tricks) {
-                    updatePreviousTricks(response.tricks);
+                    updatePreviousTricks([response.tricks]); 
                 }
     
                 if (response.round_results) {
@@ -1031,7 +1160,13 @@ $(document).ready(function () {
 
 
     function pollNextTrickStep() {
-        // If human turn and waiting for card selection
+        // 💥 Prevent polling if round is already over
+        if (window.roundOver) {
+            console.warn("🛑 Round already completed. Skipping trick step polling.");
+            return;
+        }
+
+        // 👤 Human player's turn
         if (gameState.awaitingCard) {
             const selected = getSelectedCardFromModal();
     
@@ -1055,6 +1190,7 @@ $(document).ready(function () {
     
                         if (data.action === "round_completed" && data.round_results) {
                             finalizeRound(data);
+                            window.roundOver = true;  // ✅ Prevent further polling
                             return;
                         }
     
@@ -1071,12 +1207,12 @@ $(document).ready(function () {
             return;
         }
     
-        // Otherwise: poll GET for bot plays or to await human
+        // 🤖 Bot or server updates
         $.get('/play-trick-step/', function (data) {
             if (data.action === 'awaiting_player') {
                 gameState.awaitingCard = true;
                 console.log("🃏 Awaiting human card selection...");
-                showTrickModal(data); // make sure modal appears
+                showTrickModal(data);
             } else if (data.action === 'bot_played') {
                 console.log("🤖 Bot played card:", data.card);
                 removeCardFromPlayerHand(formatCardForDOM(data.card), data.player);
@@ -1086,6 +1222,7 @@ $(document).ready(function () {
     
                 if (data.action === "round_completed" && data.round_results) {
                     finalizeRound(data);
+                    window.roundOver = true;  // ✅ Prevent further polling
                     return;
                 }
     
@@ -1095,6 +1232,34 @@ $(document).ready(function () {
             console.error("❌ Failed to fetch trick step:", err.responseText);
         });
     }
+
+    function showNextRoundDialog(roundResults) {
+        console.log("📢 Showing round dialog with results:", roundResults);
+    
+        window.gameState.awaitingCard = false;
+        $("#modal-trick-play").hide();
+        $("#modal-trump").hide();
+        $(".custom-modal").not("#round-results-modal").fadeOut();  // hide all but round modal
+        $("#round-results-modal .modal-actions button").hide();     // hide all modal buttons
+    
+        if (roundResults.game_over) {
+            $("#end-game-button").show();
+        } else {
+            $("#start-round-button").show();  // ✅ Correct button
+        }
+    
+        $("#play-card-modal").hide();
+    
+        $("#round-results-content").html(`
+            <h2>Round Complete</h2>
+            <p>Winning Team: ${roundResults.winning_team}</p>
+            <p>Points Earned: ${roundResults.points_earned || 1}</p>
+            <p>Total Scores: Team 1 - ${roundResults.team1_score}, Team 2 - ${roundResults.team2_score}</p>
+        `);
+    
+        $("#round-results-modal").fadeIn();
+    }    
+    
     
     function getSelectedCardFromModal() {
         const cardImg = dropZone.querySelector("img");
@@ -1112,66 +1277,92 @@ $(document).ready(function () {
 
     function resetCenter() {
         // Reset the center area by clearing out any played cards
-        $("#center-played-card").empty();
-        
+        ["team-mate", "opponent1", "opponent2", "player"].forEach(id => {
+            $(`#trick-${id}`).empty();
+        });
+
         // Optionally, reset any visual effects on the drop zone
         $("#drop-zone").removeClass("card-played");  // Remove any played card styles
     }
     
-    function playCard(card) {
-        // Disable the button to prevent multiple submissions
+    function playCard(cardId) {
+        if (!gameState.awaitingCard) {
+            console.warn("⛔ It's not your turn yet. Card play blocked.");
+            return;
+        }
+    
+        const humanCard = formatCard(cardId);
+        console.log("🃏 Playing card:", humanCard);
+        gameState.awaitingCard = false;
+    
         $("#play-card-button").prop("disabled", true);
-        let normalized = formatCardString(card);
+    
+        if (typeof humanCard !== "string" || !humanCard.includes(" of ")) {
+            console.error("❌ Invalid card format:", humanCard);
+            return;
+        }
+    
         $.ajax({
             url: "/play-trick-step/",
             method: "POST",
             contentType: "application/json",
-            data: JSON.stringify({ card: normalized }),
+            data: JSON.stringify({ card: humanCard }),
             success: function (response) {
                 console.log("✅ Card played:", response);
-                window.awaitingCard = false;  // Human has played a card
+                const trick = response.trick;
     
-                // Update the player's hand by removing the played card
-                let normalizedCard = card.replace(" of ", "_of_").toLowerCase();
-                currentPlayerHand = window.currentPlayerHand.filter(c => c !== normalizedCard);
-                updatePlayerHand("Player", currentPlayerHand.map(c => c.replace("_of_", " of ")));
+                // Remove from UI and hand
+                const playerIndex = trick.players.indexOf("Player");
+                if (playerIndex !== -1) {
+                    const playedCard = trick.cards[playerIndex];
+                    const domId = formatCardForDOM(playedCard);
+                    removeCardFromPlayerHand(domId, "Player");
+                    window.currentPlayerHand = window.currentPlayerHand.filter(c => c !== domId);
+                    updatePlayerHand("Player", window.currentPlayerHand.map(c => c.replace("_of_", " of ")));
+                    console.log(`📤 Player played: ${playedCard}`);
+                }
     
-                // Close the modal after playing the card
+                updatePreviousTricksTable(trick);
+    
+                // Hide modal and clear zone
+                $("#drop-zone").empty().removeAttr("data-played-card");
                 $("#play-card-modal").fadeOut();
     
-                // Remove played cards
-                if (response.trick && response.trick.players && response.trick.cards) {
-                    response.trick.players.forEach((name, index) => {
-                        const card = response.trick.cards[index];
-                    });
-                }                
-    
-                // Check if the trick is complete
+                // Round complete handling
                 if (response.trick_complete && response.trick) {
-                    if (response.action === "round_completed" && response.round_results) {
-                        updatePreviousTricks(response.trick);
-                        finalizeRound(response);  // Finalize the round if it's completed
-                        console.log("🏁 Round completed!");
-                        showRoundResultsModal(data.results); // if you have this modal
-                        return; // Stop further polling
-                    }
-    
-                    // Append the trick to history and trigger next step after a short delay
-                    appendTrickToHistory(response.trick);
-                    setTimeout(() => {
-                        resetCenter();  // Reset center (played cards area)
-                        $("#drop-zone").empty().removeAttr("data-played-card");  // Clear drop zone
-                        pollNextTrickStep();  // Trigger the next trick step
-                    }, 1000);
-    
-                } else {
-                    // If the trick isn't complete, continue to the next player
-                    pollNextTrickStep();
-                }
+                    if (response.trick_complete && response.trick) {
+                        if (response.action === "round_completed" && response.round_results) {
+                            updatePreviousTricks([response.tricks]); 
+                            
+                            if (response.round_results.game_over) {
+                                finalizeRound(response); // shows End Game modal
+                                showRoundResultsModal(response.round_results); // optional legacy UI
+                            } else {
+                                showNextRoundDialog(response.round_results);  // 👈 Start Round button
+                                updatePreviousTrick(response.trick);
+                                finalizeRound(response);
+                            }
+                    
+                            return;  // ✅ Exit to avoid extra polling
+                        }
+                    
+                        // If the trick just ended and we're continuing
+                        setTimeout(() => {
+                            $("#drop-zone").empty().removeAttr("data-played-card");
+                            $("#play-card-modal").hide();
+                            $("#end-game-button").hide();
+                            $("#ok-round-button").hide();
+                            resetCenter();  // 👈 move this *after* modal hides
+                            gameState.awaitingCard = false;
+                            pollNextTrickStep();
+                        }, 1200);
+                    }                    
+                }                  
             },
             error: function (xhr) {
                 console.error("❌ Failed to play card:", xhr.responseText);
-                $("#play-card-button").prop("disabled", false);  // Re-enable the button if there's an error
+                $("#play-card-button").prop("disabled", false);
+                alert("⚠️ Could not play the card: " + (xhr.responseJSON?.error || "Unknown error"));
             }
         });
     }    
@@ -1245,6 +1436,25 @@ $(document).ready(function () {
             }
         });
     });
+
+    function updatePreviousTricksTable(trick) {
+        if (!trick || !trick.trick_number) return;
+    
+        const existing = $("#trick-table-player tbody").find(`tr[data-trick="${trick.trick_number}"]`);
+        if (existing.length > 0) {
+            console.warn(`⚠️ Trick #${trick.trick_number} already logged, skipping.`);
+            return;
+        }
+    
+        const row = `<tr data-trick="${trick.trick_number}">
+            <td>${trick.trick_number}</td>
+            <td>${trick.players.join(", ")}</td>
+            <td>${trick.cards.join(", ")}</td>
+            <td>${trick.winner}</td>
+        </tr>`;
+        $("#trick-table-player tbody").append(row);
+    }
+    
     
 
     // Function to update game score
@@ -1346,13 +1556,24 @@ $(document).ready(function () {
     
 
     function updatePreviousTricks(tricks) {
-        let playerTeammateBody = document.getElementById("player-teammate-tricks");
-        let opponentBody = document.getElementById("opponent-tricks");
+        const playerTeammateBody = document.getElementById("player-teammate-tricks");
+        const opponentBody = document.getElementById("opponent-tricks");
     
         // Clear previous data
         playerTeammateBody.innerHTML = "";
         opponentBody.innerHTML = "";
 
+        if (!trick || !trick.players || !trick.cards || trick.players.length !== 4 || trick.cards.length !== 4 || !trick.winner) {
+            console.warn("⚠️ Skipping incomplete trick update:", trick);
+            return;
+        }
+    
+        const existing = $(`#trick-table-player tbody tr[data-trick="${trick.trick_number}"]`);
+        if (existing.length > 0) {
+            console.warn(`⚠️ Trick #${trick.trick_number} already logged, skipping.`);
+            return;
+        }
+    
         if (!Array.isArray(tricks)) {
             tricks = [tricks];
         }
@@ -1363,60 +1584,48 @@ $(document).ready(function () {
             return;
         }
     
+        const formatCard = (card) => card ? card : "—";
+    
         tricks.forEach((trick) => {
-            player = "Player";
-            opponent1 = "Opponent1";
-            teammate = "Team Mate";
-            opponent2 = "Opponent2";
-
-            // Player order changes after each trick
-            const playerIndex = trick.players.indexOf(player); // Player
-            const opponent1Index = trick.players.indexOf(opponent1); // Opponent 1
-            const teammateIndex = trick.players.indexOf(teammate); // Teammate
-            const opponent2Index = trick.players.indexOf(opponent2); // Opponent 2
-
-            // Extract cards based on the player index
-            const playerCard = playerIndex !== -1 ? trick.cards[playerIndex] : "";
-            const opponent1Card = opponent1Index !== -1 ? trick.cards[opponent1Index] : "";
-            const teammateCard = teammateIndex !== -1 ? trick.cards[teammateIndex] : "";
-            const opponent2Card = opponent2Index !== -1 ? trick.cards[opponent2Index] : "";
-
-            // Extract players and cards
-            // let player = trick.players[0]; // Player
-            // let opponent1 = trick.players[1]; // Opponent 1
-            // let teammate = trick.players[2]; // Teammate
-            // let opponent2 = trick.players[3]; // Opponent 2
+            const player = "Player";
+            const opponent1 = "Opponent1";
+            const teammate = "Team Mate";
+            const opponent2 = "Opponent2";
     
-            // let playerCard = trick.cards[0]; // Player's card
-            // let opponent1Card = trick.cards[1]; // Opponent 1's card
-            // let teammateCard = trick.cards[2]; // Teammate's card
-            // let opponent2Card = trick.cards[3]; // Opponent 2's card
-            let winner = trick.winner; // Trick Winner
+            const playerIndex = trick.players.indexOf(player);
+            const opponent1Index = trick.players.indexOf(opponent1);
+            const teammateIndex = trick.players.indexOf(teammate);
+            const opponent2Index = trick.players.indexOf(opponent2);
     
-            // Determine class for the winner cell
-            let playerTeamWinClass = (winner === player || winner === teammate) ? "winner-green" : "";
-            let opponentTeamWinClass = (winner === opponent1 || winner === opponent2) ? "winner-red" : "";
+            const playerCard = playerIndex !== -1 ? trick.cards[playerIndex] : "—";
+            const opponent1Card = opponent1Index !== -1 ? trick.cards[opponent1Index] : "—";
+            const teammateCard = teammateIndex !== -1 ? trick.cards[teammateIndex] : "—";
+            const opponent2Card = opponent2Index !== -1 ? trick.cards[opponent2Index] : "—";
     
-            // Create rows for each table
-            let playerRow = `
+            const winner = trick.winner || "Unknown";
+    
+            const playerTeamWinClass = (winner === player || winner === teammate) ? "winner-green" : "";
+            const opponentTeamWinClass = (winner === opponent1 || winner === opponent2) ? "winner-red" : "";
+    
+            const playerRow = `
                 <tr>
                     <td>${trick.trick_number}</td>
                     <td>${player}</td>
-                    <td>${playerCard}</td>
+                    <td>${formatCard(playerCard)}</td>
                     <td>${teammate}</td>
-                    <td>${teammateCard}</td>
+                    <td>${formatCard(teammateCard)}</td>
                     <td class="${playerTeamWinClass}">${winner}</td>
                 </tr>
             `;
             playerTeammateBody.innerHTML += playerRow;
     
-            let opponentRow = `
+            const opponentRow = `
                 <tr>
                     <td>${trick.trick_number}</td>
                     <td>${opponent1}</td>
-                    <td>${opponent1Card}</td>
+                    <td>${formatCard(opponent1Card)}</td>
                     <td>${opponent2}</td>
-                    <td>${opponent2Card}</td>
+                    <td>${formatCard(opponent2Card)}</td>
                     <td class="${opponentTeamWinClass}">${winner}</td>
                 </tr>
             `;
@@ -1424,9 +1633,15 @@ $(document).ready(function () {
         });
     }
     
+    
     function appendTrickToHistory(trick) {
-        let playerTeammateBody = document.getElementById("player-teammate-tricks");
-        let opponentBody = document.getElementById("opponent-tricks");
+        const existing = $("#trick-table-player tbody").find(`tr[data-trick="${trick.trick_number}"]`);
+        if (existing.length > 0) {
+            console.warn(`⚠️ Trick #${trick.trick_number} already logged, skipping.`);
+            return;
+        }
+        const playerTeammateBody = document.getElementById("player-teammate-tricks");
+        const opponentBody = document.getElementById("opponent-tricks");
     
         const player = "Player";
         const opponent1 = "Opponent1";
@@ -1438,12 +1653,14 @@ $(document).ready(function () {
         const teammateIndex = trick.players.indexOf(teammate);
         const opponent2Index = trick.players.indexOf(opponent2);
     
+        const formatCard = (card) => card ? card : "—";
+    
         const playerCard = playerIndex !== -1 ? trick.cards[playerIndex] : "";
         const opponent1Card = opponent1Index !== -1 ? trick.cards[opponent1Index] : "";
         const teammateCard = teammateIndex !== -1 ? trick.cards[teammateIndex] : "";
         const opponent2Card = opponent2Index !== -1 ? trick.cards[opponent2Index] : "";
     
-        const winner = trick.winner;
+        const winner = trick.winner || "Unknown";
     
         const playerTeamWinClass = (winner === player || winner === teammate) ? "winner-green" : "";
         const opponentTeamWinClass = (winner === opponent1 || winner === opponent2) ? "winner-red" : "";
@@ -1452,9 +1669,9 @@ $(document).ready(function () {
             <tr>
                 <td>${trick.trick_number}</td>
                 <td>${player}</td>
-                <td>${playerCard}</td>
+                <td>${formatCard(playerCard)}</td>
                 <td>${teammate}</td>
-                <td>${teammateCard}</td>
+                <td>${formatCard(teammateCard)}</td>
                 <td class="${playerTeamWinClass}">${winner}</td>
             </tr>
         `;
@@ -1463,9 +1680,9 @@ $(document).ready(function () {
             <tr>
                 <td>${trick.trick_number}</td>
                 <td>${opponent1}</td>
-                <td>${opponent1Card}</td>
+                <td>${formatCard(opponent1Card)}</td>
                 <td>${opponent2}</td>
-                <td>${opponent2Card}</td>
+                <td>${formatCard(opponent2Card)}</td>
                 <td class="${opponentTeamWinClass}">${winner}</td>
             </tr>
         `;
@@ -1475,25 +1692,35 @@ $(document).ready(function () {
     }
     
     
-    function finalizeRound(response) {
-        console.log("🔄 Finalizing round:", response);
+    function showNextRoundDialog(roundResults) {
+        console.log("📢 Showing round dialog with results:", roundResults);
     
-        if (!response.round_results) {
-            console.error("❌ Error: No round results received!");
-            return;
+        window.gameState.awaitingCard = false;
+        $("#modal-trick-play").hide();
+        $("#modal-trump").hide();
+        $(".custom-modal").not("#round-results-modal").fadeOut();  // hide all but round modal
+        $("#round-results-modal .modal-actions button").hide();     // hide all modal buttons
+    
+        if (roundResults.game_over) {
+            $("#end-game-button").show();
+        } else {
+            $("#start-round-button").show();  // ✅ Correct button
         }
     
-        showRoundResults({
-            "team1_points": response.round_results.team1_points,
-            "team2_points": response.round_results.team2_points,
-            "winning_team": response.round_results.winning_team,
-        });
+        $("#play-card-modal").hide();
     
-        console.log("✅ Round Completed! Displaying results.");
+        $("#round-results-content").html(`
+            <h2>Round Complete</h2>
+            <p>Winning Team: ${roundResults.winning_team}</p>
+            <p>Points Earned: ${roundResults.points_earned || 1}</p>
+            <p>Total Scores: Team 1 - ${roundResults.team1_score}, Team 2 - ${roundResults.team2_score}</p>
+        `);
     
-        // ✅ Ensure the round modal remains visible until the next round starts
-        $("#modal-round").fadeIn();
+        $("#round-results-modal").fadeIn();
     }
+    
+    
+    
 
     function updatePreviousTrick(trick) {
         console.log("🧾 Updating Previous Trick Table:", trick);

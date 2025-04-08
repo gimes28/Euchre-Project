@@ -784,3 +784,11 @@
     100% { transform: rotateY(180deg); opacity: 0; }
   } */
 
+  #round-results-modal .modal-actions button {
+    margin-top: 20px;
+    display: none;  /* Initially hidden, shown by JS */
+}
+
+#modal-round-button, #end-game-button {
+    display: inline-block;
+}

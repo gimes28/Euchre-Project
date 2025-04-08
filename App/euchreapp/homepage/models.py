@@ -61,6 +61,8 @@ class Game(models.Model):
     )
     team1_points = models.IntegerField(default=0)  # Points for Human + Bot2
     team2_points = models.IntegerField(default=0)  # Points for Bot1 + Bot3
+    trump_caller = models.ForeignKey("Player", null=True, blank=True, on_delete=models.SET_NULL, related_name="called_trumps")
+    going_alone = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Game {self.id} started at {self.created_at}"
@@ -351,18 +353,27 @@ def determine_best_card(hand, trump_suit, played_cards):
 def evaluate_trick_winner(trump_suit, played_cards):
     """
     Determines the winner of the current trick based on Euchre rules.
+    Accepts a list of PlayedCard instances.
     """
     if not played_cards:
-        return None
+        raise ValueError("No cards were played in this trick.")
 
-    if played_cards[0].card.is_left_bower(trump_suit):
-        lead_suit = played_cards[0].card.next_suit()
+    first_card = played_cards[0].card
+
+    # Determine the lead suit, accounting for left bower
+    if first_card.is_left_bower(trump_suit):
+        lead_suit = first_card.next_suit()  # typically the same-color suit
     else:
-        lead_suit = played_cards[0].card.suit
+        lead_suit = first_card.suit
 
-    # Find the highest-ranked card
-    winning_card = max(played_cards, key=lambda pc: BotLogic.euchre_rank(pc.card, trump_suit, lead_suit))
-    return winning_card.player
+    # Sort by Euchre ranking to determine the winning card
+    winning_pc = max(
+        played_cards,
+        key=lambda pc: BotLogic.euchre_rank(pc.card, trump_suit, lead_suit)
+    )
+
+    return winning_pc.player
+
 
 
 
@@ -371,42 +382,53 @@ def update_game_results(game, team1_tricks, team2_tricks, trump_caller, going_al
 
     team1_names = ["Player", "Team Mate"]
     team2_names = ["Opponent1", "Opponent2"]
-
     caller_team = 1 if trump_caller.name in team1_names else 2
+
     game.winning_team = winning_team
 
-    # Euchre rules
+    # Euchre Scoring
     if winning_team == caller_team:
         if going_alone:
-            game.team1_points += 4 if caller_team == 1 else 0
-            game.team2_points += 4 if caller_team == 2 else 0
+            if caller_team == 1:
+                game.team1_points += 4
+            else:
+                game.team2_points += 4
         elif (team1_tricks == 5 and caller_team == 1) or (team2_tricks == 5 and caller_team == 2):
-            game.team1_points += 2 if caller_team == 1 else 0
-            game.team2_points += 2 if caller_team == 2 else 0
+            if caller_team == 1:
+                game.team1_points += 2
+            else:
+                game.team2_points += 2
         else:
-            game.team1_points += 1 if caller_team == 1 else 0
-            game.team2_points += 1 if caller_team == 2 else 0
+            if caller_team == 1:
+                game.team1_points += 1
+            else:
+                game.team2_points += 1
     else:
-        # Opponent gets 2 points for euchre
-        game.team1_points += 2 if caller_team == 2 else 0
-        game.team2_points += 2 if caller_team == 1 else 0
+        # Euchred: opponents get 2 points
+        if caller_team == 1:
+            game.team2_points += 2
+        else:
+            game.team1_points += 2
 
     game.save()
 
-
-    # Check for game-winning condition
+    # Check for game winner
     if game.team1_points >= 10 or game.team2_points >= 10:
         winner = "Team 1" if game.team1_points >= 10 else "Team 2"
+        winning_player = (
+            Player.objects.filter(name="Player").first()
+            if winner == "Team 1" else
+            Player.objects.filter(name__in=["Opponent1", "Opponent2"]).first()
+        )
 
         GameResult.objects.create(
             game=game,
-            winner=Player.objects.filter(name="Player").first() if game.team1_points >= 10 else Player.objects.filter(name__in=["Opponent1", "Opponent2"]).first(),
+            winner=winning_player,
             total_hands=game.hands.count(),
             points={"team1": game.team1_points, "team2": game.team2_points},
         )
-        print(f"Game over! Winner: {winner}")
 
-
+        print(f"🎉 Game over! Winner: {winner}")
 
         
 def reset_round_state(game):
@@ -591,6 +613,8 @@ def start_euchre_round(game, trump_caller, going_alone):
 
         # Determine the winner of the trick
         trick_winner = evaluate_trick_winner(hand.trump_suit, trick_cards)
+
+        # Save winner to hand (ForeignKey is valid here)
         hand.winner = trick_winner
         hand.save()
 
@@ -603,7 +627,10 @@ def start_euchre_round(game, trump_caller, going_alone):
         else:
             team2_tricks += 1
 
-        previous_tricks[trick_number + 1] = trick_cards
+        # Safely store the trick cards
+        next_trick_number = len(previous_tricks) + 1
+        previous_tricks[next_trick_number] = trick_cards
+
 
         # Store trick results
         tricks_data.append({
