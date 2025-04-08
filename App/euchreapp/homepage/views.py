@@ -8,6 +8,7 @@ from random import shuffle
 from .models import start_euchre_round, Game, Player, Card, deal_hand as model_deal_hand, PlayedCard, reset_round_state, Hand, GameResult, evaluate_trick_winner
 
 import json
+from .data_analysis import Random_Forest_Model
 
 def get_left_bower_suit(trump_suit):
     left_bower_map = {
@@ -428,7 +429,7 @@ def accept_trump(request):
             if dealer.is_human:
                 dealer_hand = sort_hand(dealer_hand, suit)
 
-            for i, card in enumerate(sort_hand(dealer_hand, suit)):
+            for i, card in enumerate(dealer_hand):
                 PlayedCard.objects.create(
                     player=dealer,
                     card=card,
@@ -436,25 +437,26 @@ def accept_trump(request):
                     order=i + 1
                 )
 
-            # 🔥 Always refresh the human hand
+            # Don't sort hand if player is dealer as their hand is already sorted
             human_player = Player.objects.get(is_human=True)
-            human_played_cards = PlayedCard.objects.filter(player=human_player, hand=latest_hand)
-            hand_cards = [pc.card for pc in human_played_cards]
+            if not dealer.is_human:
+                human_played_cards = PlayedCard.objects.filter(player=human_player, hand=latest_hand)
+                hand_cards = [pc.card for pc in human_played_cards]
             
-            # 🔁 Fallback: if no PlayedCards yet for the human, try to reconstruct from initial hand data
-            if not hand_cards:
-                print("❌ FATAL: No cards found for human player in current hand.")
-                return JsonResponse({"error": "No hand data available for player."}, status=500)    
+                # 🔁 Fallback: if no PlayedCards yet for the human, try to reconstruct from initial hand data
+                if not hand_cards:
+                    print("❌ FATAL: No cards found for human player in current hand.")
+                    return JsonResponse({"error": "No hand data available for player."}, status=500)    
     
-            human_played_cards.delete()
+                human_played_cards.delete()
 
-            for i, card in enumerate(sort_hand(hand_cards, suit)):
-                PlayedCard.objects.create(
-                    player=human_player,
-                    card=card,
-                    hand=latest_hand,
-                    order=i + 1
-                )
+                for i, card in enumerate(sort_hand(hand_cards, suit)):
+                    PlayedCard.objects.create(
+                        player=human_player,
+                        card=card,
+                        hand=latest_hand,
+                        order=i + 1
+                    )
 
             updated_hand = [
                 f"{pc.card.rank} of {pc.card.suit}"
@@ -568,6 +570,9 @@ def start_round(request):
             trump_caller_name = request.POST.get("trump_caller")
             trump_caller = Player.objects.get(name=trump_caller_name)
             going_alone = request.POST.get("going_alone") == "true"
+            up_card = request.POST.get("up_card")
+
+            print(f"up_card: {up_card}")
 
 
             game.going_alone = going_alone
@@ -578,7 +583,8 @@ def start_round(request):
                 game=game,
                 trump_suit=game.trump_suit,
                 starting_player=game.dealer.get_next_player(going_alone=going_alone),
-                current_trick=1  # This is essential!
+                current_trick=1,  # This is essential!
+                up_card=up_card
             )
             
             # Clear any PlayedCards from the last round
@@ -836,6 +842,7 @@ def play_trick_step(request):
     trick_players = Player.turn_order(start=hand.starting_player)
     played_this_trick = PlayedCard.objects.filter(hand=hand, trick_number=current_trick).order_by('order')
     played_players = [pc.player for pc in played_this_trick]
+    trump_caller = Player.objects.get(name=hand.starting_player)
 
     if request.method == "POST":
         try:
@@ -882,7 +889,6 @@ def play_trick_step(request):
 
                 if hand.current_trick == 5:
                     round_results = hand.evaluate_round_results()
-                    trump_caller = Player.objects.get(name=hand.starting_player)
                     going_alone = getattr(game, 'going_alone', False)
 
                     update_game_results(game, round_results["team1_tricks"], round_results["team2_tricks"], trump_caller, going_alone)
@@ -945,12 +951,40 @@ def play_trick_step(request):
         current_player = remaining_players[0]
 
         if current_player.is_human:
+            played_cards = PlayedCard.objects.filter(hand=hand, player=current_player)
+            all_cards = Card.objects.filter(owner=current_player)
+
+            # Remove cards already played
+            played_card_ids = [pc.card.id for pc in played_cards]
+            current_hand_cards = all_cards.exclude(id__in=played_card_ids)
+
+            # Get seat position
+            seat_position = trick_players.index(current_player)
+
+            # Get tricks won by each team
+            team1_tricks = 0
+            team2_tricks = 0
+            previous_tricks = {}
+            for trick_num in range(1, current_trick):
+                trick_cards = PlayedCard.objects.filter(hand=hand, trick_number=trick_num).order_by('order')
+                previous_tricks[trick_num] = [pc.card for pc in trick_cards]
+
+                winner = evaluate_trick_winner(game.trump_suit, trick_cards)
+                if winner.team == 1:
+                    team1_tricks += 1
+                else:
+                    team2_tricks += 1
+
+            probabilities = get_player_card_probabilities(game, hand, seat_position, current_hand_cards, current_player, trump_caller, played_this_trick, hand.up_card, previous_tricks, team1_tricks, team2_tricks)
+
             return JsonResponse({
                 "action": "awaiting_player",
                 "played_so_far": [
                     {"player": pc.player.name, "card": str(pc.card)} for pc in played_this_trick
                 ],
-                "trick_number": current_trick
+                "trick_number": current_trick,
+                "probabilities": probabilities,
+                "best_card": max(probabilities, key=lambda x: x["probability"])["card"]
             })
 
         # Bot logic
@@ -962,8 +996,6 @@ def play_trick_step(request):
             trick_number=current_trick,
             order=played_this_trick.count()
         )
-
-        played_this_trick = PlayedCard.objects.filter(hand=hand, trick_number=current_trick).order_by('order')
 
         if len(played_this_trick) == 4:
             winner = evaluate_trick_winner(game.trump_suit, played_this_trick)
@@ -1026,6 +1058,58 @@ def play_trick_step(request):
         })
 
     return JsonResponse({"error": "Invalid request method."}, status=405)
+
+def get_player_card_probabilities(game, hand, seat_position, player_hand, human_player, trump_caller, trick_played_cards, up_card, previous_tricks, team1_tricks, team2_tricks):
+    """
+    Send game state to the model to get probabilities for each card
+    """
+
+    print(f"Player hand: {player_hand}")
+    # Convert to list of Card objects
+    trick_cards = [pc.card for pc in trick_played_cards]
+
+    if len(trick_cards) > 0:
+        suit_lead = trick_cards[0].suit
+    else:
+        suit_lead = "unknown"
+
+    game_state = {
+        "game_id": game.id,
+        "round_id": hand.trick_number,
+        "team1_score": game.team1_points,
+        "team2_score": game.team2_points,
+        "team1_round_score": team1_tricks,
+        "team2_round_score": team2_tricks,
+        "seat_position": seat_position,
+        "is_dealer": game.dealer.is_human,
+        "partner_is_dealer": game.dealer.team == human_player.team and game.dealer.name != "Player",
+        "trump_suit": game.trump_suit,
+        "trump_maker": trump_caller.name,
+        "hand": [str(card) for card in player_hand],
+        "current_trick": [str(card) for card in trick_cards],
+        "suit_lead": suit_lead,
+        "up_card": up_card if up_card else "unknown",
+        "known_cards": [str(card) for trick in previous_tricks.values() for card in trick],
+        "win_probability": -1
+    }
+    for key, value in game_state.items():
+        print(f"{key}: {value}")
+
+    try:
+        predicted_probs = Random_Forest_Model.get_probabilities(game_state)
+        print(f"Predicted probs: {predicted_probs}")
+    except Exception as e:
+        print(f"Error in get_probabilities: {str(e)}")
+
+    probabilities = []
+    for card, probability in predicted_probs:
+        print(f"Card: {card} — Win Probability: {probability:.3f}")
+        probabilities.append({
+            "card": str(card),
+            "probability": float(probability)
+        })
+
+    return probabilities
 
 
 # Reset trick

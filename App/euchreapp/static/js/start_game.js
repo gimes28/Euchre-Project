@@ -13,7 +13,8 @@ $(document).ready(function () {
     let currentSuit = "";
     let trumpSelected = false;
     let gameResponse = null;
-    let kitty = [] // Store the global response object here
+    let kitty = [] 
+    let upCard = null; // Store the global response object here
 
     // Reset Current Trump, Game Score, Play Card modal on Page Load
     $("#current-trump").text("None");
@@ -123,9 +124,29 @@ $(document).ready(function () {
             type: "GET",
             success: function(response) {
                 console.log("🧠 Trick step response:", response);
+
     
                 if (response.action === "awaiting_player") {
                     console.log("🃏 Awaiting human card selection...");
+
+                    // Update the display of player's cards with probabilities
+                    const cardContainer = $(positions["Player"]);
+                    cardContainer.empty();
+    
+                    response.probabilities.forEach(prob => {
+                        const isbestCard = prob.card === response.best_card;
+                        const cardHtml = `
+                            <div class="card-container">
+                                <div class="probability-overlay">${(prob.probability * 100).toFixed(1)}%</div>
+                                <img src="${getCardImage(prob.card)}" 
+                                     class="playing-card ${isbestCard ? 'best-card' : ''}" 
+                                     data-card="${prob.card}" 
+                                     data-player="Player">
+                            </div>
+                        `;
+                        cardContainer.append(cardHtml);
+                    });
+                    
                     showTrickModal(response); // ✅ This is the only place played_so_far is guaranteed
                 } else if (response.action === "bot_played") {
                     console.log("📤 Bot card played by:", response.player);  // data.player not just player
@@ -278,6 +299,8 @@ $(document).ready(function () {
         `);
 
         $("#reject-trump-button").prop("disabled", false);
+
+        upCard = card;
     
         // Ensure buttons are properly assigned new handlers
         $("#accept-trump-button").off("click").on("click", function () {
@@ -553,6 +576,7 @@ $(document).ready(function () {
     
     function rejectTrump(player, trumpRound) {
         currentPlayerIndex++;
+        upCard = gameResponse.remaining_cards[0];
     
         if (currentPlayerIndex < playerOrder.length) {
             if (trumpRound === 1) {
@@ -952,7 +976,7 @@ $(document).ready(function () {
         $.ajax({
             url: "/start-round/",
             type: "POST",
-            data: { trump_caller: trumpCaller, going_alone: goingAlone },
+            data: { trump_caller: trumpCaller, going_alone: goingAlone, up_card: upCard },
             success: function (response) {
                 console.log("✅ Round Results Received:", response);
                 console.log("🔁 Human's hand ready:", currentPlayerHand);
@@ -968,7 +992,7 @@ $(document).ready(function () {
                 }
     
                 if (response.round_results) {
-                    finalizeRound(response);
+                    // finalizeRound(response);
                 }
     
                 updateRemainingCards();
@@ -1045,7 +1069,7 @@ $(document).ready(function () {
             $.ajax({
                 type: "POST",
                 url: "/play-trick-step/",
-                data: JSON.stringify({ card: selected }),
+                data: JSON.stringify({ card: selected, up_card: upCard }),
                 contentType: "application/json",
                 success: function (data) {
                     gameState.awaitingCard = false;

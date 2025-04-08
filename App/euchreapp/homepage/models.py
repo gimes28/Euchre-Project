@@ -72,6 +72,7 @@ class Hand(models.Model):
     trump_suit = models.CharField(max_length=20)
     starting_player = models.CharField(max_length=100, default="")
     current_trick = models.IntegerField(default=1)
+    up_card = models.CharField(max_length=20, null=True, blank=True, default="")
 
 
     # ✅ ADD THESE TWO FIELDS

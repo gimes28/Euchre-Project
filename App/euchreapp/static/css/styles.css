@@ -784,3 +784,24 @@
     100% { transform: rotateY(180deg); opacity: 0; }
   } */
 
+.card-container {
+    position: relative;
+    display: inline-block;
+}
+
+.probability-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 2;
+}
+
+.best-card {
+    border: 3px solid #2ecc71;
+    box-shadow: 0 0 10px #2ecc71;
+}
