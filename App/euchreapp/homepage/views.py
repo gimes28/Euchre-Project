@@ -860,6 +860,8 @@ def play_trick_step(request):
     game = Game.objects.latest('id')
     hand = game.hands.latest('id')
 
+    print("hand.current_trick", hand.current_trick)
+
     if hand.current_trick > 5:
         return JsonResponse({"error": "All tricks have been played."}, status=400)
 

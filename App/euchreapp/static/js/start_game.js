@@ -161,7 +161,25 @@ $(document).ready(function () {
             
                 // 🎯 Follow-up: handle response actions
                 if (response.action === "awaiting_player") {
-                    console.log("🃏 Awaiting human card selection...");
+                    console.log("🃏 Awaiting human card selection...");// Update the display of player's cards with probabilities
+                    const cardContainer = $(positions["Player"]);
+                    cardContainer.empty();
+    
+                    response.probabilities.forEach(prob => {
+                        const isbestCard = prob.card === response.best_card;
+                        const cardHtml = `
+                            <div class="card-container">
+                                <img src="${getCardImage(prob.card)}" 
+                                     class="playing-card ${isbestCard ? 'best-card' : ''}" 
+                                     data-card="${prob.card}" 
+                                     data-player="Player"
+                                     draggable="true"
+                                     ondragstart="event.dataTransfer.setData('card', '${prob.card}')">
+                                <div class="probability-overlay">${(prob.probability * 100).toFixed(1)}%</div>
+                            </div>
+                        `;
+                        cardContainer.append(cardHtml);
+                    });
                     gameState.awaitingCard = true;
                     showTrickModal(response);
                 } 
@@ -559,6 +577,7 @@ $(document).ready(function () {
 
 
     document.getElementById("play-card-button").addEventListener("click", function () {
+        console.log("codument.event listener payed card button");
         const selectedCard = getSelectedCardFromModal();
         if (!selectedCard) return;
     
@@ -1214,7 +1233,25 @@ $(document).ready(function () {
         // 🤖 Bot or server updates
         $.get('/play-trick-step/', function (data) {
             if (data.action === 'awaiting_player') {
-                gameState.awaitingCard = true;
+                gameState.awaitingCard = true;// Update the display of player's cards with probabilities
+                const cardContainer = $(positions["Player"]);
+                cardContainer.empty();
+
+                response.probabilities.forEach(prob => {
+                    const isbestCard = prob.card === response.best_card;
+                    const cardHtml = `
+                        <div class="card-container">
+                            <img src="${getCardImage(prob.card)}" 
+                                 class="playing-card ${isbestCard ? 'best-card' : ''}" 
+                                 data-card="${prob.card}" 
+                                 data-player="Player"
+                                 draggable="true"
+                                 ondragstart="event.dataTransfer.setData('card', '${prob.card}')">
+                            <div class="probability-overlay">${(prob.probability * 100).toFixed(1)}%</div>
+                        </div>
+                    `;
+                    cardContainer.append(cardHtml);
+                });
                 console.log("🃏 Awaiting human card selection...");
                 showTrickModal(data);
             } else if (data.action === 'bot_played') {
