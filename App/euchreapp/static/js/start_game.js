@@ -146,7 +146,6 @@ $(document).ready(function () {
             type: "GET",
             success: function(response) {
                 console.log("🧠 Trick step response:", response);
-<<<<<<< HEAD
             
                 // ✅ Only remove human card if this step was from the human
                 if (response.player === "Player") {
@@ -168,40 +167,8 @@ $(document).ready(function () {
                 } 
                 else if (response.action === "bot_played") {
                     console.log("📤 Bot card played by:", response.player);
-=======
-
-    
-                if (response.action === "awaiting_player") {
-                    console.log("🃏 Awaiting human card selection...");
-
-                    // Update the display of player's cards with probabilities
-                    const cardContainer = $(positions["Player"]);
-                    cardContainer.empty();
-    
-                    response.probabilities.forEach(prob => {
-                        const isbestCard = prob.card === response.best_card;
-                        const cardHtml = `
-                            <div class="card-container">
-                                <img src="${getCardImage(prob.card)}" 
-                                     class="playing-card ${isbestCard ? 'best-card' : ''}" 
-                                     data-card="${prob.card}" 
-                                     data-player="Player"
-                                     draggable="true"
-                                     ondragstart="event.dataTransfer.setData('card', '${prob.card}')">
-                                <div class="probability-overlay">${(prob.probability * 100).toFixed(1)}%</div>
-                            </div>
-                        `;
-                        cardContainer.append(cardHtml);
-                    });
-                    
-                    showTrickModal(response); // ✅ This is the only place played_so_far is guaranteed
-                } else if (response.action === "bot_played") {
-                    console.log("📤 Bot card played by:", response.player);  // data.player not just player
-                    // Update UI to show bot card played
->>>>>>> 9180bb4bdabcf62b3af7588b939af627cfcc8dc8
                     updateBotCardUI(response.player, response.card);
                     console.log("Looking for card:", formatCardForDOM(response.card), "for", response.player);
-<<<<<<< HEAD
                     setTimeout(playTrickLoop, 700);
                 } 
                 else if (response.action === "trick_completed") {
@@ -224,19 +191,6 @@ $(document).ready(function () {
                     return;
                 } 
                 else {
-=======
-                    // Continue trick loop after small delay
-                    setTimeout(playTrickLoop, 1400);
-                } else if (response.action === "round_completed") {
-                    updatePreviousTrick(response.trick);
-                    finalizeRound(response);  // <- Show results modal
-                    return;
-                } else if (response.action === "trick_completed") {
-                    console.log("🏁 Trick completed:", response.trick);
-                    updatePreviousTrick(response.trick);
-                    setTimeout(playTrickLoop, 1000); // Start next trick
-                } else {
->>>>>>> 9180bb4bdabcf62b3af7588b939af627cfcc8dc8
                     console.warn("⚠️ Unexpected action:", response);
                 }
             },

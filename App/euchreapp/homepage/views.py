@@ -1020,8 +1020,14 @@ def play_trick_step(request):
             order=played_this_trick.count()
         )
 
+        
+        played_this_trick = PlayedCard.objects.filter(hand=hand, trick_number=current_trick).order_by('order')
+
         trick_complete = len(played_this_trick) == 4
         trick_data = None
+
+        print(f"🔥 Trick complete: {trick_complete}")
+        print(f"🔥 Trick data: {len(played_this_trick)}")
 
         if trick_complete:
             winner = evaluate_trick_winner(game.trump_suit, played_this_trick)
