@@ -18,7 +18,7 @@ $(document).ready(function () {
     // Reset Current Trump, Game Score, Play Card modal on Page Load
     $("#current-trump").text("None");
     $("#game-score").text("Player Team: 0 | Opponent Team: 0");
-    $("#modal-play-card").fadeOut();
+    $("#modal-trick-play").fadeOut();
     
     // Initialize Semantic UI checkbox
     $('.ui.toggle.checkbox').checkbox();
@@ -84,7 +84,9 @@ $(document).ready(function () {
     
 
     window.showPlayCardModal = function (playedSoFar = []) {
-        const modal = $("#modal-play-card");
+        const modal = document.getElementById("modal-trick-play");
+        $("#drop-zone").removeAttr("data-played-card");
+        $("#drop-zone").html(`<p>Drop your card here</p>`);  // reset drop zone
         const playedCardsSection = $("#played-cards-list");
     
         playedCardsSection.empty();
@@ -92,7 +94,7 @@ $(document).ready(function () {
             playedCardsSection.append(`<li><strong>${player}</strong> played ${card}</li>`);
         });
     
-        modal.fadeIn();
+        $("#modal-trick-play").fadeIn();
     };
 
 
@@ -193,12 +195,15 @@ $(document).ready(function () {
 
     // Final placement after everything else is loaded
     window.showTrickModal = function (data) {
-        const modal = document.getElementById("modal-play-card");
+        const modal = document.getElementById("modal-trick-play");
+        const dropZone = document.getElementById("drop-zone");
+        $("#modal-trick-play").removeClass("hidden"); 
+        $("#modal-trick-play").fadeIn();
+
         dropZone.innerHTML = "";  // Clear drop zone
+        $("#drop-zone").html(`<p>Drop your card here</p>`);  // reset drop zone
+        $("#drop-zone").removeAttr("data-played-card");
     
-        // Show the modal
-        $("#modal-play-card").fadeIn();
-        console.log("✅ showTrickModal() triggered with data:", data);
     
         // Handle dragover event
         dropZone.addEventListener("dragover", (e) => {
@@ -258,6 +263,7 @@ $(document).ready(function () {
     // Function to display the trump card modal
     function showTrumpCardDialog(card, player) {
         $("#start-game-button").hide();
+        $("#modal-trick-play").hide();
         $("#start-game-form").hide();
         $("#ok-round-button").hide();
         $("#modal-round").hide();
@@ -291,6 +297,7 @@ $(document).ready(function () {
     // Function to display the trump card modal for the 2nd round of trump selection
     function showTrumpCardDialog2ndRound(upCardSuit, player) {
         $("#start-game-button").hide();
+        $("#modal-trick-play").hide();
         $("#ok-round-button").hide();
         $("#modal-round").fadeOut();
         $("#modal-dealer").fadeOut();
@@ -362,9 +369,6 @@ $(document).ready(function () {
                 discarded_card = response.discarded_card;
                 updated_hand = response.updated_hand;
 
-                if (data.updated_hand) {
-                    currentPlayerHand = data.updated_hand.map(formatCardString);
-                }
             
                 kitty[0].faceup = false;
                 if (response.discarded_card) {
@@ -373,6 +377,9 @@ $(document).ready(function () {
                 updateKittyDisplay();
     
                 if (response.updated_hand) {
+                    currentPlayerHand = response.updated_hand.map(card =>
+                        card.replace(" of ", "_of_").toLowerCase()
+                    );
                     updatePlayerHand("Player", response.updated_hand);
                     setPlayerHand(response.updated_hand);
                 }
@@ -398,7 +405,7 @@ $(document).ready(function () {
 
     function updatePlayerNames(trumpCaller = null, trumpSuit = null) {
         $(".rectangle").removeClass("loner-partner");
-        
+        $("#modal-trick-play").hide();
         $(".center-top-text").text("Team Mate");
         $(".center-left-text").text("Opponent 1");
         $(".center-bottom-text").text("Player");
@@ -471,7 +478,7 @@ $(document).ready(function () {
         if (!selectedCard) return;
     
         gameState.awaitingCard = false;  // Allow polling again
-        $("#modal-play-card").addClass("hidden");
+        $("#modal-trick-play").hide();
     
         $.ajax({
             url: "/play-trick-step/",
@@ -538,7 +545,7 @@ $(document).ready(function () {
         const selectedCard = $("#drop-zone").attr("data-played-card");
         if (!selectedCard) return;
     
-        $("#modal-play-card").fadeOut();
+        $("#modal-trick-play").fadeOut();
         console.log("🃏 Playing card:", selectedCard);
         playCard(selectedCard);
     });    
@@ -638,6 +645,7 @@ $(document).ready(function () {
         // Hide unnecessary buttons
         $("#accept-trump-button").hide();
         $("#reject-trump-button").hide();
+        $("#modal-trick-play").hide();
         $("#ok-modal-button").hide();
         $("#modal-round-button").hide();
         $("#ok-trump-button").show();  // Ensure OK button is visible
@@ -650,6 +658,7 @@ $(document).ready(function () {
         if (!trumpSelected) return;  // Prevents round modal from appearing too early
 
         $("#modal-trump").fadeOut(); // Hide trump modal if still visible
+        $("#modal-trick-play").hide();
         $("#modal-round .modal-content").html(`
             <p>${message}</p>
         `);
@@ -1228,6 +1237,7 @@ $(document).ready(function () {
                 // Show the Start Game button again
                 $("#end-game-button").hide();
                 $("#start-game-button").show();
+                $("#modal-trick-play").hide();
                 $("#start-game-form").show();
             },
             error: function (xhr) {

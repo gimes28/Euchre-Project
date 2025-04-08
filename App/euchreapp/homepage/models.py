@@ -127,6 +127,7 @@ class Card(models.Model):
     suit = models.CharField(max_length=10, choices=SUITS)
     rank = models.CharField(max_length=5, choices=RANKS)
     is_trump = models.BooleanField(default=False)
+    owner = models.ForeignKey(Player, null=True, on_delete=models.SET_NULL, related_name='cards')
 
     class Meta:
         unique_together = ('suit', 'rank')  # Prevent duplicates
@@ -222,34 +223,39 @@ def initialize_game(players):
 
     return game, deck
 
+def sort_hand(cards, trump_suit=None):
+    # Just a placeholder to prevent crashing; replace with proper Euchre sort logic
+    rank_order = ['9', '10', 'J', 'Q', 'K', 'A']
+    return sorted(cards, key=lambda card: (card.suit != trump_suit, rank_order.index(card.rank)))
 
 
 def deal_hand(deck, players, game):
     """
-    Deals a hand of 5 unique cards to each player while ensuring no duplicate assignments.
+    Deals a hand of 5 unique cards to each player while ensuring no duplicate assignments,
+    and creates corresponding PlayedCard entries.
     """
     try:
-        print("📢 deal_hand() function was called!")  
+        print("📢 deal_hand() function was called!")
 
         if not game:
             print("🚨 ERROR: No active game found!")
             return {}, []
 
-        # **Step 1: Ensure we have enough unique cards**
+        # Step 1: Ensure enough unique cards
         deck_size = len(deck)
         print(f"🔥 DEBUG: Deck size before dealing: {deck_size} (Expected: 24 cards)")
 
         if deck_size < len(players) * 5:
             return JsonResponse({"error": "Not enough unique cards left in deck!"}, status=500)
 
-        # **Step 2: Create a new hand**
+        # Step 2: Create a new Hand
         hand = Hand.objects.create(game=game, dealer=game.dealer, trump_suit=game.trump_suit or "unknown")
 
-        # **Step 3: Assign Cards**
+        # Step 3: Assign cards to players
         hands = {player: [] for player in players}
         assigned_cards = set()
 
-        for _ in range(5):  
+        for _ in range(5):
             for player in players:
                 if not deck:
                     print("🚨 ERROR: Deck ran out of cards while dealing!")
@@ -258,7 +264,7 @@ def deal_hand(deck, players, game):
                 card = deck.pop(0)
 
                 while card in assigned_cards:
-                    deck.append(card)  
+                    deck.append(card)
                     if not deck:
                         print("🚨 ERROR: No more available unique cards!")
                         return JsonResponse({"error": "🔥 ERROR: No more available unique cards!"}, status=500)
@@ -267,22 +273,30 @@ def deal_hand(deck, players, game):
                 assigned_cards.add(card)
                 hands[player].append(card)
 
+                # ✅ Assign ownership to the player
+                card.owner = player
+                card.save()
+
+        # ✅ Create PlayedCard entries for each player
+        for player, cards in hands.items():
+            sorted_cards = sort_hand(cards) if player.is_human else cards
+            for i, card in enumerate(sorted_cards):
                 PlayedCard.objects.create(
                     player=player,
                     card=card,
                     hand=hand,
-                    order=len(hands[player])
+                    order=i + 1
                 )
 
-        # Debugging: Print hands before returning
         print(f"🔥 DEBUG: Hands dealt: {hands}")
         print(f"🔥 DEBUG: Kitty after dealing: {deck}")
 
-        return hands, deck  # **Ensure this returns a tuple of (hands, remaining_cards)**
+        return hands, deck
 
     except Exception as e:
         print(f"🚨 ERROR in deal_hand(): {str(e)}")
         return {}, []
+
 
 
 

@@ -49,17 +49,17 @@ function showTrickResults(data) {
     const trickHtml = data.cards_played.map(pc =>
         `<li>${pc.player} played ${pc.card}</li>`).join("");
 
-    $("#modal-play-card .trick-modal-content").html(`
+    $("#modal-trick-play").html(`
         <p><strong>Trick Complete!</strong></p>
         <ul>${trickHtml}</ul>
         <p><strong>Winner: ${data.winner}</strong></p>
     `);
     $("#modal-round-button").hide();
     $("#ok-round-button").show();
-    $("#modal-play-card").modal("show");
+    $("#modal-trick-play").fadeIn();
 
     $("#ok-round-button").off("click").on("click", () => {
-        $("#modal-play-card").modal("hide");
+        $("#modal-trick-play").fadeOut();
 
         // 💡 Clear last trick from backend, then restart trick loop
         $.post('/end-trick/', {}, function() {

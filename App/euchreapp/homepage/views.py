@@ -5,28 +5,68 @@ from django.contrib.auth.views import LoginView
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from random import shuffle
-from .models import start_euchre_round, Game, Player, Card, deal_hand as model_deal_hand, PlayedCard, reset_round_state, Hand, GameResult, rotate_dealer, evaluate_trick_winner
+from .models import start_euchre_round, Game, Player, Card, deal_hand as model_deal_hand, PlayedCard, reset_round_state, Hand, GameResult, evaluate_trick_winner
 
 import json
 
-from .bot_logic import get_valid_plays  # Adjust based on your structure
+def get_left_bower_suit(trump_suit):
+    left_bower_map = {
+        'hearts': 'diamonds',
+        'diamonds': 'hearts',
+        'spades': 'clubs',
+        'clubs': 'spades',
+    }
+    return left_bower_map.get(trump_suit)
+
+
+def get_valid_plays_from_cards(cards, lead_card, trump_suit):
+    if not lead_card:
+        return list(cards)  # First play of the trick
+
+    lead_suit = lead_card.suit
+
+    def is_effective_suit(card):
+        if card.rank == 'J' and card.suit in [trump_suit, get_left_bower_suit(trump_suit)]:
+            return trump_suit
+        return card.suit
+
+    matching_suit_cards = [card for card in cards if is_effective_suit(card) == lead_suit]
+    return matching_suit_cards if matching_suit_cards else list(cards)
+
 
 def select_bot_card(player, hand, trick_number):
-    """
-    Determines which card a bot should play during a trick.
-    """
-    played_cards = list(
-        PlayedCard.objects.filter(hand=hand, trick_number=trick_number).order_by('order')
+    player = Player.objects.get(name=player.name)  # Ensure fresh instance from DB
+
+    played_cards = PlayedCard.objects.filter(hand=hand, player=player)
+    all_cards = Card.objects.filter(owner=player)
+
+    # Remove cards already played
+    played_card_ids = [pc.card.id for pc in played_cards]
+    current_hand_cards = all_cards.exclude(id__in=played_card_ids)
+
+    lead_card_obj = (
+        PlayedCard.objects.filter(hand=hand, trick_number=trick_number)
+        .order_by('order')
+        .first()
     )
+    lead_card = lead_card_obj.card if lead_card_obj else None
 
-    lead_card = played_cards[0].card if played_cards else None
+    valid_cards = get_valid_plays_from_cards(current_hand_cards, lead_card, hand.trump_suit)
 
-    valid_cards = get_valid_plays(player, lead_card, hand.trump_suit)
+    print(f"🧠 Bot {player.name} selecting card for trick {trick_number}")
+    print(f"Total owned cards: {[str(c) for c in all_cards]}")
+    print(f"Played this round: {[str(pc.card) for pc in played_cards]}")
+    print(f"Remaining in hand: {[str(c) for c in current_hand_cards]}")
+    print(f"Lead card: {lead_card}")
 
     if not valid_cards:
-        raise ValueError(f"No valid cards found for {player.name} to play.")
+        print(f"⚠️ No valid cards found for {player.name}. Falling back to any remaining card.")
+        if current_hand_cards:
+            return current_hand_cards[0]
+        raise ValueError(f"{player.name} has no cards left to play.")
 
-    return valid_cards[0]  # Simple strategy: play the first valid card
+    return valid_cards[0]
+
 
 
 # Render the homepage
@@ -70,6 +110,9 @@ def start_new_game(request):
     if request.method == 'POST':
         try:
             print("🔥 Starting a new game while keeping previous data...")
+            
+            # ✅ Clear owner field on all cards to reset state
+            Card.objects.update(owner=None)
 
             # Step 1: Mark the last game as completed if unfinished
             last_game = Game.objects.order_by('-id').first()
@@ -130,7 +173,16 @@ def start_new_game(request):
             shuffle(deck)
 
             # Step 6: Deal hands
-            hands = {player: [deck.pop() for _ in range(5)] for player in players}
+            hands = {}
+            
+            for player in players:
+                hands[player] = []
+                for _ in range(5):
+                    card = deck.pop()
+                    card.owner = player
+                    card.save()
+                    hands[player].append(card)
+
 
             # Step 7: Prepare remaining cards for trump selection
             remaining_cards = deck[:4] if len(deck) >= 4 else []
@@ -333,7 +385,6 @@ def accept_trump(request):
         return JsonResponse({"error": "Invalid request method."}, status=400)
 
     try:
-        # ✅ Parse JSON payload correctly
         try:
             data = json.loads(request.body.decode("utf-8"))
         except json.JSONDecodeError:
@@ -350,7 +401,7 @@ def accept_trump(request):
         if not latest_hand:
             return JsonResponse({"error": "No active hand found for the current game."}, status=400)
 
-        # Round 1: Order up
+        # ✅ Round 1: Order up
         if trump_round == "1":
             card_info = data.get("card")
             if not card_info:
@@ -372,13 +423,12 @@ def accept_trump(request):
 
             discarded_card = dealer.get_worst_card(dealer_hand, suit)
             dealer_hand.remove(discarded_card)
-
             dealer_played_cards.delete()
 
             if dealer.is_human:
                 dealer_hand = sort_hand(dealer_hand, suit)
 
-            for i, card in enumerate(dealer_hand):
+            for i, card in enumerate(sort_hand(dealer_hand, suit)):
                 PlayedCard.objects.create(
                     player=dealer,
                     card=card,
@@ -386,27 +436,32 @@ def accept_trump(request):
                     order=i + 1
                 )
 
-            # Update human hand (if dealer is not human)
-            if not dealer.is_human:
-                player = Player.objects.get(is_human=True)
-                player_cards = PlayedCard.objects.filter(player=player, hand=latest_hand)
-                player_hand = [pc.card for pc in player_cards]
-                player_cards.delete()
+            # 🔥 Always refresh the human hand
+            human_player = Player.objects.get(is_human=True)
+            human_played_cards = PlayedCard.objects.filter(player=human_player, hand=latest_hand)
+            hand_cards = [pc.card for pc in human_played_cards]
+            
+            # 🔁 Fallback: if no PlayedCards yet for the human, try to reconstruct from initial hand data
+            if not hand_cards:
+                print("❌ FATAL: No cards found for human player in current hand.")
+                return JsonResponse({"error": "No hand data available for player."}, status=500)    
+    
+            human_played_cards.delete()
 
-                sorted_hand = sort_hand(player_hand, suit)
-                for i, card in enumerate(sorted_hand):
-                    PlayedCard.objects.create(
-                        player=player,
-                        card=card,
-                        hand=latest_hand,
-                        order=i + 1
-                    )
+            for i, card in enumerate(sort_hand(hand_cards, suit)):
+                PlayedCard.objects.create(
+                    player=human_player,
+                    card=card,
+                    hand=latest_hand,
+                    order=i + 1
+                )
 
             updated_hand = [
                 f"{pc.card.rank} of {pc.card.suit}"
-                for pc in PlayedCard.objects.filter(player=dealer if dealer.is_human else player, hand=latest_hand)
+                for pc in PlayedCard.objects.filter(player=human_player, hand=latest_hand)
             ]
 
+            print("✅ Human hand for UI:", updated_hand)
             game.trump_suit = suit
             game.save()
 
@@ -417,16 +472,20 @@ def accept_trump(request):
                 "dealer": dealer.name
             })
 
-        # Round 2: Call a suit
+        # ✅ Round 2: Call a suit
         elif trump_round == "2":
             suit = data.get("suit")
             if not suit:
                 return JsonResponse({"error": "Missing suit data."}, status=400)
 
             player = Player.objects.get(is_human=True)
-            player_cards = PlayedCard.objects.filter(player=player, hand=latest_hand)
+            # Get the latest 5 cards and safely delete them
+            player_cards = list(PlayedCard.objects.filter(player=player, hand=latest_hand).order_by('order'))
             player_hand = [pc.card for pc in player_cards]
-            player_cards.delete()
+
+            # Delete safely
+            for pc in player_cards:
+                pc.delete()
 
             sorted_hand = sort_hand(player_hand, suit)
             for i, card in enumerate(sorted_hand):
@@ -437,13 +496,16 @@ def accept_trump(request):
                     order=i + 1
                 )
 
-            updated_hand = [
-                f"{pc.card.rank} of {pc.card.suit}"
-                for pc in PlayedCard.objects.filter(player=player, hand=latest_hand)
-            ]
+            updated_hand = [f"{card.rank} of {card.suit}" for card in sorted_hand]
+            print("✅ Human hand for UI:", updated_hand)
+            
 
             game.trump_suit = suit
             game.save()
+            
+            print("✅ Human hand after reshuffling:")
+            for card in sorted_hand:
+                print(f"- {card.rank} of {card.suit}")
 
             return JsonResponse({
                 "trump_suit": suit,
@@ -619,24 +681,6 @@ def play_card(player, hand, card, player_hands, game):
         player_hands[player] = [c for c in player_hands[player] if c != card]
 
 
-# def evaluate_trick_winner(trump_suit, trick_cards):
-#     """
-#     Determines the winner of a trick.
-#     """
-#     lead_card = trick_cards[0].card
-#     lead_suit = lead_card.suit
-#     best_card = lead_card
-#     best_player = trick_cards[0].player
-
-#     for played_card in trick_cards[1:]:
-#         challenger = played_card.card
-#         if challenger.beats(best_card, lead_suit, trump_suit):
-#             best_card = challenger
-#             best_player = played_card.player
-
-#     return best_player
-
-    
 # Play human card
 @csrf_exempt
 def play_human_card(request):
@@ -836,7 +880,7 @@ def play_trick_step(request):
                     "trick_number": current_trick
                 }
 
-                if hand.current_trick >= 5:
+                if hand.current_trick == 5:
                     round_results = hand.evaluate_round_results()
                     trump_caller = Player.objects.get(name=hand.starting_player)
                     going_alone = getattr(game, 'going_alone', False)
@@ -853,6 +897,8 @@ def play_trick_step(request):
                                 "cards": [str(pc.card) for pc in trick],
                                 "winner": evaluate_trick_winner(game.trump_suit, trick).name
                             })
+                        else:
+                            print(f"❌ Trick {i} is incomplete: {len(trick)} cards")
 
                     return JsonResponse({
                         "action": "round_completed",
@@ -871,6 +917,9 @@ def play_trick_step(request):
                     "trick": trick_data,
                     "trick_complete": True
                 })
+            
+            if hand.current_trick > 5:
+                return JsonResponse({"error": "All tricks have been played."}, status=400)
 
             return JsonResponse({
                 "message": "Card played.",
@@ -929,7 +978,7 @@ def play_trick_step(request):
                 "trick_number": current_trick
             }
 
-            if hand.current_trick >= 5:
+            if hand.current_trick == 5:
                 round_results = hand.evaluate_round_results()
                 trump_caller = Player.objects.get(name=hand.starting_player)
                 going_alone = getattr(game, 'going_alone', False)
@@ -958,6 +1007,9 @@ def play_trick_step(request):
                     },
                     "tricks": completed_tricks
                 })
+            
+            if hand.current_trick > 5:
+                return JsonResponse({"error": "All tricks have been played."}, status=400)
 
             return JsonResponse({
                 "action": "trick_completed",

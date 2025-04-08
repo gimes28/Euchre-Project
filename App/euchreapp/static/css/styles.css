@@ -312,6 +312,15 @@
     margin-top: 20px;
 }
 
+.custom-modal.show,
+.custom-modal.fade-in {
+    display: block;
+}
+
+.custom-modal.hidden {
+    display: none !important;
+}
+
 /* Highlight dealer square and add icon */
 .dealer-highlight {
     position: relative;
@@ -607,17 +616,19 @@
     border: 1px solid #ccc;
 }
 
-#modal-play-card {
-    display: none;  /* Hide initially */
-    position: fixed;
-    top: 50%;
+#modal-trick-play {
+    top: 80%;
     left: 50%;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1001;
-    pointer-events: auto;
-    display: flex;
+    display: none;
+}
+
+#modal-trick-play .modal-content {
+    display: flex !important;
+    align-content: center;
     justify-content: center;
     align-items: center;
+    flex-direction: column;
+    flex-wrap: nowrap;
 }
 
 #drop-zone {
@@ -627,9 +638,14 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #f4f4f4;
+    background-color: transparent;
+    transition: box-shadow 0.3s ease;
 }
 
+#drop-zone.highlight-drop-zone {
+    box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.7);
+    border-color: #fffa;
+}
 
 .trick-modal {
     position: fixed;
