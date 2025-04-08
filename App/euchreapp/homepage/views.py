@@ -951,14 +951,12 @@ def play_trick_step(request):
         current_player = remaining_players[0]
 
         if current_player.is_human:
-            # played_cards = PlayedCard.objects.filter(hand=hand, player=current_player)
-            # all_cards = Card.objects.filter(owner=current_player)
+            played_cards = PlayedCard.objects.filter(hand=hand, player=current_player)
+            all_cards = Card.objects.filter(owner=current_player)
 
-            # # Remove cards already played
-            # played_card_ids = [pc.card.id for pc in played_cards]
-            # current_hand_cards = all_cards.exclude(id__in=played_card_ids)
-
-            current_hand_cards = Card.objects.filter(owner=current_player)
+            # Remove cards already played
+            played_card_ids = [pc.card.id for pc in played_cards]
+            current_hand_cards = all_cards.exclude(id__in=played_card_ids)
 
             # Get seat position
             seat_position = trick_players.index(current_player)
@@ -978,7 +976,8 @@ def play_trick_step(request):
                     team2_tricks += 1
 
             probabilities = get_player_card_probabilities(game, hand, seat_position, current_hand_cards, current_player, trump_caller, played_this_trick, hand.up_card, previous_tricks, team1_tricks, team2_tricks)
-
+            
+            
             return JsonResponse({
                 "action": "awaiting_player",
                 "played_so_far": [
