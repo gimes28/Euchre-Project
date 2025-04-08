@@ -74,6 +74,7 @@ class Hand(models.Model):
     trump_suit = models.CharField(max_length=20)
     starting_player = models.CharField(max_length=100, default="")
     current_trick = models.IntegerField(default=1)
+    up_card = models.CharField(max_length=20, null=True, blank=True, default="")
 
 
     # ✅ ADD THESE TWO FIELDS
@@ -289,6 +290,10 @@ def deal_hand(deck, players, game):
                     hand=hand,
                     order=i + 1
                 )
+        
+        for card in deck:
+            card.owner = None
+            card.save()
 
         print(f"🔥 DEBUG: Hands dealt: {hands}")
         print(f"🔥 DEBUG: Kitty after dealing: {deck}")
