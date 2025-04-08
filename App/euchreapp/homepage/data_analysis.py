@@ -181,7 +181,7 @@ class Data_Encoding():
         # Create expanded columns
         hand_df = pd.DataFrame(df['hand_encoded'].tolist(), columns=[f'hand_card_{i}' for i in range(max_hand_length)])
         known_df = pd.DataFrame(df['known_cards_encoded'].tolist(), columns=[f'known_card_{i}' for i in range(max_known_cards_length)])
-        trick_df = pd.DataFrame(df['current_trick_encoded'].tolist(), columns=[f'current_trick{i}' for i in range(max_current_trick)])
+        trick_df = pd.DataFrame(df['current_trick_encoded'].tolist(), columns=[f'current_trick_{i}' for i in range(max_current_trick)])
 
         df = pd.concat([df, hand_df, known_df, trick_df], axis=1)
 
